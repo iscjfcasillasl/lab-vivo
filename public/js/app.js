@@ -129,18 +129,18 @@ function buildNav() {
     if (usersLink) nav.appendChild(usersLink);
 
     sortedProjects().forEach(p => {
-        const a = document.createElement('a');
-        a.href = '#';
-        a.className = 'nav-item';
-        a.dataset.project = p.key || p.id;
-        a.onclick = (e) => { e.preventDefault(); selectProject(p.key || p.id, a); };
+        const div = document.createElement('div');
+        div.className = 'nav-item';
+        div.style.cursor = 'pointer';
+        div.dataset.project = p.key || p.id;
+        div.onclick = () => { selectProject(p.key || p.id, div); };
 
-        a.innerHTML = `
+        div.innerHTML = `
             <i class="${p.icon || 'ri-circle-fill'}" style="color:${p.color}; font-size:1.1rem; width:20px; text-align:center"></i>
             <span style="flex:1">${p.name}</span>
             <span class="nav-progress">${projectProgress(p)}%</span>
         `;
-        nav.appendChild(a);
+        nav.appendChild(div);
     });
 }
 

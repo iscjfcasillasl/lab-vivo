@@ -29,13 +29,13 @@
                 <h1>Laboratorio<br><span>Vivo ITNN</span></h1>
             </div>
             <nav class="nav-menu" id="project-nav">
-                <a href="#" class="nav-item active" data-project="all" onclick="selectProject('all', this)">
+                <div class="nav-item active" data-project="all" onclick="selectProject('all', this)" style="cursor:pointer">
                     <i class="ri-dashboard-line"></i> Vista Global
-                </a>
+                </div>
                 @if($isSuperAdmin)
-                <a href="#" class="nav-item" data-project="users" onclick="showUserManagement(this)">
+                <div class="nav-item" data-project="users" onclick="showUserManagement(this)" style="cursor:pointer">
                     <i class="ri-group-line"></i> Gestión de Usuarios
-                </a>
+                </div>
                 @endif
             </nav>
 
@@ -51,35 +51,34 @@
             <header class="top-bar">
                 <div style="display:none" id="view-title"></div>
 
-                <div style="display: flex; align-items: center; gap: 2rem;">
-                    <div class="kpi-bar">
-                        <div class="kpi-pill">
-                            <i class="ri-checkbox-circle-line"></i> <span id="kpi-progress">0%</span>
-                        </div>
-                        <div class="kpi-pill">
-                            <i class="ri-list-check"></i> <span id="kpi-pending-tasks">0</span>
-                        </div>
-                        <div class="kpi-pill">
-                            <i class="ri-folder-info-line"></i> <span id="kpi-total-projects">0</span>
-                        </div>
-                        <div class="kpi-pill">
-                            <i class="ri-time-line"></i> <span id="kpi-total-days">0</span>
-                        </div>
+                <div class="kpi-bar">
+                    <div class="kpi-pill">
+                        <i class="ri-checkbox-circle-line"></i> <span id="kpi-progress">0%</span>
                     </div>
+                    <div class="kpi-pill">
+                        <i class="ri-list-check"></i> <span id="kpi-pending-tasks">0</span>
+                    </div>
+                    <div class="kpi-pill">
+                        <i class="ri-folder-info-line"></i> <span id="kpi-total-projects">0</span>
+                    </div>
+                    <div class="kpi-pill">
+                        <i class="ri-time-line"></i> <span id="kpi-total-days">0</span>
+                    </div>
+                </div>
 
-                    <div class="profile-action" onclick="toggleProfileDropdown(event)">
-                        @if(Auth::user()->avatar)
-                            <img src="{{ Auth::user()->avatar }}" style="width:32px;height:32px;border-radius:10px;object-fit:cover" alt="avatar">
-                        @else
-                            <div style="width:32px;height:32px;border-radius:10px;background:var(--bg-dark);display:flex;align-items:center;justify-content:center">
-                                <i class="ri-user-line"></i>
-                            </div>
-                        @endif
-                        <div style="text-align: left; line-height: 1.2;">
-                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">{{ Auth::user()->name }}</div>
-                            <div style="font-size: 0.65rem; color: var(--text-muted);">{{ $isSuperAdmin ? 'Administrador' : 'Usuario' }}</div>
+                <div class="profile-action" onclick="toggleProfileDropdown(event)">
+                    @if(Auth::user()->avatar)
+                        <img src="{{ Auth::user()->avatar }}" style="width:32px;height:32px;border-radius:10px;object-fit:cover" alt="avatar">
+                    @else
+                        <div style="width:32px;height:32px;border-radius:10px;background:var(--bg-dark);display:flex;align-items:center;justify-content:center">
+                            <i class="ri-user-line"></i>
                         </div>
-                        <i class="ri-arrow-down-s-line" style="font-size: 1.1rem; color: var(--text-muted);"></i>
+                    @endif
+                    <div style="text-align: left; line-height: 1.2;">
+                        <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">{{ Auth::user()->name }}</div>
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">{{ $isSuperAdmin ? 'Administrador' : 'Usuario' }}</div>
+                    </div>
+                    <i class="ri-arrow-down-s-line" style="font-size: 1.1rem; color: var(--text-muted);"></i>
 
                         <!-- Dropdown Menu -->
                         <div class="profile-dropdown" id="profile-dropdown">
@@ -106,17 +105,20 @@
 
                             <div style="height: 1px; background: var(--border); margin: 8px 0;"></div>
 
-                            <a href="{{ route('logout') }}" class="profile-item" style="color: #ef4444;">
+                            <div onclick="event.preventDefault(); document.getElementById('logout-form').submit();" class="profile-item" style="color: #ef4444; cursor:pointer">
                                 <span>Cerrar Sesión</span>
                                 <i class="ri-logout-box-r-line"></i>
-                            </a>
+                            </div>
+                            <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
+                                @csrf
+                            </form>
                         </div>
                     </div>
                 </div>
             </header>
 
             <!-- Global Gantt View -->
-            <div id="view-global">
+            <div id="view-global" style="margin-top: 1.5rem;">
                 <section class="card gantt-section">
                     <div class="section-header">
                         <h2><i class="ri-bar-chart-horizontal-line"></i> Cronograma por Proyecto</h2>
@@ -127,7 +129,7 @@
             </div>
 
             <!-- Project Detail View -->
-            <div id="view-detail" style="display:none">
+            <div id="view-detail" style="display:none; margin-top: 1.5rem;">
                 <div class="detail-header-card card" id="detail-header"></div>
                 <section class="card gantt-section" style="margin-top:1.5rem">
                     <div class="section-header">
@@ -148,7 +150,7 @@
             </div>
 
             <!-- User Management View -->
-            <div id="view-users" style="display:none">
+            <div id="view-users" style="display:none; margin-top: 1.5rem;">
                 <section class="card">
                     <div class="section-header">
                         <h2><i class="ri-group-line"></i> Gestión de Usuarios</h2>
