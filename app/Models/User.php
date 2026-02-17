@@ -21,8 +21,14 @@ class User extends Authenticatable
         'google_id',
         'avatar',
         'role',
-        'approved',
+        'approved', // deprecated
+        'status', // pending, active, suspended
     ];
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active' || ($this->approved && $this->status !== 'suspended');
+    }
 
     protected $hidden = [
         'password',

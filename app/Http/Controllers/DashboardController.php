@@ -284,39 +284,32 @@ class DashboardController extends Controller
     }
 
     /**
-     * PUT /api/users/{id}/approve — Approve a user (superadmin only)
+     * PUT /api/users/{id}/status — Update user status (superadmin only)
+     * Statuses: active, pending, suspended
      */
-    public function approveUser($id)
+    public function updateUserStatus(Request $request, $id)
     {
         $user = Auth::user();
         if (!$user->isSuperAdmin()) {
             return response()->json(['error' => 'No autorizado'], 403);
         }
 
-        $targetUser = User::findOrFail($id);
-        $targetUser->update(['approved' => true]);
-
-        return response()->json(['success' => true]);
-    }
-
-    /**
-     * DELETE /api/users/{id} — Delete/Reject a user (superadmin only)
-     */
-    public function deleteUser($id)
-    {
-        $user = Auth::user();
-        if (!$user->isSuperAdmin()) {
-            return response()->json(['error' => 'No autorizado'], 403);
-        }
+        $request->validate([
+            'status' => 'required|in:active,pending,suspended',
+        ]);
 
         $targetUser = User::findOrFail($id);
         
-        // Don't allow deleting self
+        // Don't allow changing self status
         if ($targetUser->id === $user->id) {
-            return response()->json(['error' => 'No puedes eliminarte a ti mismo'], 400);
+            return response()->json(['error' => 'No puedes cambiar tu propio estado'], 400);
         }
 
-        $targetUser->delete();
+        $newStatus = $request->status;
+        $targetUser->update([
+            'status' => $newStatus,
+            'approved' => $newStatus === 'active', // Sync legacy field
+        ]);
 
         return response()->json(['success' => true]);
     }

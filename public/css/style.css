@@ -414,7 +414,10 @@ body {
 }
 
 .section-header {
-    margin-bottom: 1.5rem
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
 }
 
 .section-header h2 {
@@ -1449,6 +1452,189 @@ h3 i,
     .form-row {
         flex-direction: column
     }
+}
+
+/* ─── Export Dropdown ─── */
+.export-dropdown-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-export {
+    background: linear-gradient(135deg, #107c41 0%, #0b5e30 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.2s;
+    font-family: var(--font);
+    font-size: 0.85rem;
+}
+
+.btn-export:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(16, 124, 65, 0.35);
+}
+
+.btn-export i {
+    font-size: 1rem;
+}
+
+.export-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 220px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px);
+    transition: opacity .2s, transform .2s;
+    overflow: hidden;
+}
+
+.export-dropdown.open {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+}
+
+.export-dropdown-title {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    padding: 10px 14px 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.export-option {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: 0.15s;
+    color: var(--text-main);
+    font-family: var(--font);
+}
+
+.export-option:hover {
+    background: var(--bg-card-hover);
+}
+
+.export-option i {
+    font-size: 1.2rem;
+    width: 22px;
+    text-align: center;
+}
+
+.export-option .ext-badge {
+    margin-left: auto;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ext-badge.xlsx {
+    background: rgba(16, 124, 65, 0.15);
+    color: #10b981;
+}
+
+.ext-badge.pdf {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+/* Legacy compat */
+.btn-excel {
+    background: linear-gradient(135deg, #107c41 0%, #0b5e30 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.2s;
+    font-family: var(--font);
+    font-size: 0.85rem;
+}
+
+.btn-excel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(16, 124, 65, 0.2);
+}
+
+/* Export loading overlay */
+.export-loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s;
+}
+
+.export-loading-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.export-loading-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem 3rem;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.export-loading-box .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: exportSpin 0.7s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes exportSpin {
+    to { transform: rotate(360deg); }
+}
+
+.export-loading-box p {
+    font-size: 0.95rem;
+    color: var(--text-main);
+    font-weight: 600;
+}
+
+.export-loading-box span {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 4px;
 }
 
 /* Priority Selector styles */

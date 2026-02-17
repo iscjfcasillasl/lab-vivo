@@ -16,7 +16,7 @@ class EnsureUserApproved
             return redirect()->route('login');
         }
 
-        if (!$user->approved && !$user->isSuperAdmin()) {
+        if (!$user->isActive() && !$user->isSuperAdmin()) {
             return redirect()->route('pending-approval');
         }
 

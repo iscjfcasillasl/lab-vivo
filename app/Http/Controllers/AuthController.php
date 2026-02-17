@@ -52,7 +52,8 @@ class AuthController extends Controller
                     'google_id' => $googleUser->id,
                     'avatar' => $googleUser->avatar,
                     'password' => null,
-                    'approved' => $isSuperAdmin, // Only auto-approve superadmin
+                    'approved' => $isSuperAdmin, // Legacy support
+                    'status' => $isSuperAdmin ? 'active' : 'pending',
                     'role' => $isSuperAdmin ? 'superadmin' : 'user',
                 ]);
             }
@@ -60,7 +61,7 @@ class AuthController extends Controller
             Auth::login($user);
 
             // Redirect based on approval status
-            if (!$user->approved && !$user->isSuperAdmin()) {
+            if (!$user->isActive() && !$user->isSuperAdmin()) {
                 return redirect()->route('pending-approval');
             }
 

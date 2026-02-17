@@ -9,6 +9,8 @@
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}?v={{ time() }}">
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 <body>
     <script>
@@ -127,8 +129,28 @@
             <div id="view-global" style="margin-top: 1.5rem;">
                 <section class="card gantt-section">
                     <div class="section-header">
-                        <h2><i class="ri-bar-chart-horizontal-line"></i> Cronograma por Proyecto</h2>
-                        <p class="subtitle">Haz clic en un proyecto para ver sus actividades</p>
+                        <div>
+                            <h2><i class="ri-bar-chart-horizontal-line"></i> Cronograma por Proyecto</h2>
+                            <p class="subtitle">Haz clic en un proyecto para ver sus actividades</p>
+                        </div>
+                        <div class="export-dropdown-wrap">
+                            <button class="btn-export" onclick="toggleExportDropdown(event, 'global')">
+                                <i class="ri-download-2-line"></i> Exportar <i class="ri-arrow-down-s-line" style="font-size:0.9rem;margin-left:-4px"></i>
+                            </button>
+                            <div class="export-dropdown" id="export-dd-global">
+                                <div class="export-dropdown-title">Exportar Todo</div>
+                                <div class="export-option" onclick="exportXLSX('all')">
+                                    <i class="ri-file-excel-2-line" style="color:#10b981"></i>
+                                    <span>Excel con gráficos</span>
+                                    <span class="ext-badge xlsx">.xlsx</span>
+                                </div>
+                                <div class="export-option" onclick="exportPDF('all')">
+                                    <i class="ri-file-pdf-2-line" style="color:#ef4444"></i>
+                                    <span>PDF con gráficos</span>
+                                    <span class="ext-badge pdf">.pdf</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="gantt-wrapper" id="gantt-global"></div>
                 </section>
@@ -139,8 +161,28 @@
                 <div class="detail-header-card card" id="detail-header"></div>
                 <section class="card gantt-section" style="margin-top:1.5rem">
                     <div class="section-header">
-                        <h2><i class="ri-list-check-2"></i> Actividades del Proyecto</h2>
-                        <p class="subtitle">Haz clic en una actividad para editar su progreso y horario</p>
+                        <div>
+                            <h2><i class="ri-list-check-2"></i> Actividades del Proyecto</h2>
+                            <p class="subtitle">Haz clic en una actividad para editar su progreso y horario</p>
+                        </div>
+                        <div class="export-dropdown-wrap">
+                            <button class="btn-export" onclick="toggleExportDropdown(event, 'detail')">
+                                <i class="ri-download-2-line"></i> Exportar <i class="ri-arrow-down-s-line" style="font-size:0.9rem;margin-left:-4px"></i>
+                            </button>
+                            <div class="export-dropdown" id="export-dd-detail">
+                                <div class="export-dropdown-title">Exportar Proyecto</div>
+                                <div class="export-option" onclick="exportXLSX(currentProjectId)">
+                                    <i class="ri-file-excel-2-line" style="color:#10b981"></i>
+                                    <span>Excel con gráficos</span>
+                                    <span class="ext-badge xlsx">.xlsx</span>
+                                </div>
+                                <div class="export-option" onclick="exportPDF(currentProjectId)">
+                                    <i class="ri-file-pdf-2-line" style="color:#ef4444"></i>
+                                    <span>PDF con gráficos</span>
+                                    <span class="ext-badge pdf">.pdf</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="gantt-wrapper" id="gantt-detail"></div>
                 </section>
@@ -201,7 +243,7 @@
                     </div>
                     <div class="form-group" style="flex:1">
                         <label>Días (Duración)</label>
-                        <input type="number" id="act-edit-days" min="1" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:white; border:1px solid var(--border); border-radius:8px">
+                        <input type="number" id="act-edit-days" min="1" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px">
                     </div>
                 </div>
                 <div class="form-row">
@@ -227,7 +269,7 @@
                 </div>
                 <div class="form-group">
                     <label>Estado</label>
-                    <select id="act-edit-status" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:white; border:1px solid var(--border); border-radius:8px"
+                    <select id="act-edit-status" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px"
                         onchange="
                             const progEl = document.getElementById('act-edit-progress');
                             const valEl = document.getElementById('act-edit-progress-val');
@@ -242,7 +284,7 @@
                 </div>
                 <div class="form-group">
                     <label>Prioridad</label>
-                    <select id="act-edit-priority" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:white; border:1px solid var(--border); border-radius:8px">
+                    <select id="act-edit-priority" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px">
                         <option value="low">Baja</option>
                         <option value="medium">Media</option>
                         <option value="high">Alta</option>
@@ -251,7 +293,7 @@
                 </div>
                 <div class="form-group">
                     <label style="color:var(--warning)"><i class="ri-file-text-line"></i> Justificación del cambio <span style="color:var(--danger);font-size:0.7rem">(obligatorio)</span></label>
-                    <textarea id="act-edit-justification" rows="3" placeholder="Describe el avance realizado o la razón del cambio..." style="width:100%; padding:10px; background:var(--bg-dark); color:white; border:1px solid var(--border); border-radius:8px; resize:vertical; font-family:inherit; font-size:0.85rem"></textarea>
+                    <textarea id="act-edit-justification" rows="3" placeholder="Describe el avance realizado o la razón del cambio..." style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px; resize:vertical; font-family:inherit; font-size:0.85rem"></textarea>
                 </div>
 
                 <!-- Mini log inside modal -->
@@ -378,6 +420,15 @@
         const API_BASE = "{{ url('/api') }}";
         const API_PROJECTS_URL = API_BASE + "/projects";
     </script>
+    <!-- Export Loading Overlay -->
+    <div class="export-loading-overlay" id="export-loading">
+        <div class="export-loading-box">
+            <div class="spinner"></div>
+            <p id="export-loading-text">Generando exportación...</p>
+            <span id="export-loading-sub">Esto puede tomar unos segundos</span>
+        </div>
+    </div>
+
     <script src="{{ asset('js/app.js') }}"></script>
 </body>
 </html>

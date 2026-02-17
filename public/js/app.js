@@ -171,6 +171,7 @@ function selectProject(key, navEl) {
             selectProject('all');
             return;
         }
+        window.currentProjectId = proj.id;
         document.getElementById('view-title').textContent = proj.name;
         document.getElementById('view-detail').style.display = '';
         renderDetailView(proj);
@@ -198,35 +199,70 @@ async function loadUsers() {
     try {
         const users = await apiCall(`${API_BASE}/users`);
         const tbody = document.getElementById('users-table-body');
+
         tbody.innerHTML = users.map(user => {
-            const statusClass = user.approved ? 'priority-badge low' : 'priority-badge critical';
-            const statusText = user.approved ? 'Aprobado' : 'Pendiente';
+            // Determine status display
+            let statusLabel = 'Sin Acceso';
+            let badgeColor = 'var(--warning)';
+            let status = user.status || (user.approved ? 'active' : 'pending');
+
+            if (status === 'active') {
+                statusLabel = 'Activo';
+                badgeColor = 'var(--success)';
+            } else if (status === 'suspended') {
+                statusLabel = 'Suspendido';
+                badgeColor = 'var(--danger)';
+            } else {
+                status = 'pending'; // normalize
+            }
+
             const isSelf = user.id === CURRENT_USER.id;
+
+            // Build actions
+            let actions = '<span style="opacity:0.5;font-size:0.8rem">Sin acciones</span>';
+            if (!isSelf) {
+                // Button styles
+                const btnCommon = "padding:6px 12px;border-radius:4px;display:inline-flex;align-items:center;border:none;color:white;cursor:pointer;gap:5px;font-size:0.8rem;transition:0.2s";
+
+                if (status === 'active') {
+                    // Active -> Suspender (Suspended) OR Revocar (Pending)
+                    actions = `<div style="display:flex;gap:5px">
+                        <button onclick="changeUserStatus(${user.id}, 'suspended')" title="Suspender" style="${btnCommon};background:var(--danger)"><i class="ri-prohibited-line"></i> Suspender</button>
+                        <button onclick="changeUserStatus(${user.id}, 'pending')" title="Revocar" style="${btnCommon};background:var(--warning)"><i class="ri-close-circle-line"></i> Revocar</button>
+                     </div>`;
+                } else if (status === 'suspended') {
+                    // Suspended -> Reactivar (Active)
+                    actions = `<div style="display:flex;gap:5px">
+                        <button onclick="changeUserStatus(${user.id}, 'active')" title="Reactivar" style="${btnCommon};background:var(--success)"><i class="ri-check-line"></i> Reactivar</button>
+                     </div>`;
+                } else {
+                    // Pending -> Aprobar (Active) OR No Aprobar (Suspended)
+                    actions = `<div style="display:flex;gap:5px">
+                        <button onclick="changeUserStatus(${user.id}, 'active')" title="Aprobar" style="${btnCommon};background:var(--success)"><i class="ri-check-line"></i> Aprobar</button>
+                        <button onclick="changeUserStatus(${user.id}, 'suspended')" title="No Aprobar" style="${btnCommon};background:var(--danger)"><i class="ri-close-line"></i> No Aprobar</button>
+                     </div>`;
+                }
+            } else {
+                actions = '<span style="opacity:0.5;font-size:0.8rem">Tú</span>';
+            }
 
             return `
                 <tr>
                     <td style="text-align:left">
                         <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
-                            <img src="${user.avatar || 'https://ui-avatars.com/api/?name=' + user.name}" style="width:32px;height:32px;border-radius:50%">
+                            <img src="${user.avatar || 'https://ui-avatars.com/api/?name=' + user.name}" 
+                                 onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${user.name}'"
+                                 style="width:32px;height:32px;border-radius:50%">
                             <span style="font-weight:600">${user.name}</span>
                         </div>
                     </td>
                     <td>${user.email}</td>
                     <td style="font-size:0.8rem;opacity:0.7">${new Date(user.created_at).toLocaleDateString('es-MX')}</td>
-                    <td><span class="${statusClass}">${statusText}</span></td>
+                    <td><span class="priority-badge" style="background:${badgeColor}20; color:${badgeColor}; font-size:0.75rem">${statusLabel}</span></td>
                     <td><span style="text-transform:uppercase;font-size:0.7rem;font-weight:700;opacity:0.6">${user.role}</span></td>
                     <td>
                         <div style="display:flex;gap:8px;justify-content:center">
-                            ${!user.approved ? `
-                                <button onclick="approveUser(${user.id})" class="btn-edit-project" style="background:var(--success); color:#fff; border:none; padding:6px 12px; font-size:0.8rem">
-                                    <i class="ri-check-line"></i> Aprobar
-                                </button>
-                            ` : ''}
-                            ${!isSelf ? `
-                                <button onclick="deleteUser(${user.id})" class="btn-delete-project" style="padding:6px;width:32px;height:32px;display:flex;align-items:center;justify-content:center">
-                                    <i class="ri-delete-bin-line"></i>
-                                </button>
-                            ` : ''}
+                            ${actions}
                         </div>
                     </td>
                 </tr>
@@ -234,6 +270,18 @@ async function loadUsers() {
         }).join('');
     } catch (error) {
         alert('error cargando usuarios: ' + error.message);
+    }
+}
+
+async function changeUserStatus(userId, newStatus) {
+    const actionName = newStatus === 'active' ? 'activar' : 'suspender';
+    if (!confirm(`¿Estás seguro de ${actionName} a este usuario?`)) return;
+
+    try {
+        await apiCall(`${API_BASE}/users/${userId}/status`, 'PUT', { status: newStatus });
+        await loadUsers();
+    } catch (error) {
+        alert('Error: ' + error.message);
     }
 }
 
@@ -247,8 +295,8 @@ async function approveUser(userId) {
     }
 }
 
-async function rejectUser(userId) {
-    if (!confirm('¿Rechazar y eliminar este usuario?')) return;
+async function deleteUser(userId) {
+    if (!confirm('¿Eliminar este usuariopermanentemente?')) return;
     try {
         await apiCall(`${API_BASE}/users/${userId}`, 'DELETE');
         await loadUsers();
@@ -944,7 +992,924 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e =
 document.addEventListener('click', () => {
     document.getElementById('icon-dropdown')?.classList.remove('open');
     document.getElementById('profile-dropdown')?.classList.remove('open');
+    document.querySelectorAll('.export-dropdown').forEach(dd => dd.classList.remove('open'));
 });
+
+/* ═══════════════════════════════════════════
+   Export Dropdown Toggle
+   ═══════════════════════════════════════════ */
+function toggleExportDropdown(e, id) {
+    e.stopPropagation();
+    // Close all dropdowns first
+    document.querySelectorAll('.export-dropdown').forEach(dd => dd.classList.remove('open'));
+    const dd = document.getElementById(`export-dd-${id}`);
+    if (dd) dd.classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════
+   Export Loading Overlay
+   ═══════════════════════════════════════════ */
+function showExportLoading(text, sub) {
+    document.getElementById('export-loading-text').textContent = text || 'Generando exportación...';
+    document.getElementById('export-loading-sub').textContent = sub || 'Esto puede tomar unos segundos';
+    document.getElementById('export-loading').classList.add('active');
+}
+
+function hideExportLoading() {
+    document.getElementById('export-loading').classList.remove('active');
+}
+
+/* ═══════════════════════════════════════════
+   Helpers for Export
+   ═══════════════════════════════════════════ */
+function hexToArgb(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    return 'FF' + hex.toUpperCase();
+}
+
+function lightenHex(hex, factor = 0.85) {
+    hex = hex.replace('#', '');
+    let r = parseInt(hex.substring(0, 2), 16);
+    let g = parseInt(hex.substring(2, 4), 16);
+    let b = parseInt(hex.substring(4, 6), 16);
+    r = Math.round(r + (255 - r) * factor);
+    g = Math.round(g + (255 - g) * factor);
+    b = Math.round(b + (255 - b) * factor);
+    return 'FF' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function priorityColor(priority) {
+    switch (priority) {
+        case 'critical': return { bg: 'FFFEE2E2', fg: 'FFDC2626' };
+        case 'high': return { bg: 'FFFFFBEB', fg: 'FFD97706' };
+        case 'medium': return { bg: 'FFEEF2FF', fg: 'FF6366F1' };
+        case 'low': return { bg: 'FFF0FDF4', fg: 'FF16A34A' };
+        default: return { bg: 'FFF5F5F5', fg: 'FF666666' };
+    }
+}
+
+function progressBarText(pct) {
+    const filled = Math.round(pct / 5);
+    const empty = 20 - filled;
+    return '█'.repeat(filled) + '░'.repeat(empty) + ` ${pct}%`;
+}
+
+/* ═══════════════════════════════════════════
+   XLSX Export with ExcelJS
+   ═══════════════════════════════════════════ */
+async function exportXLSX(target) {
+    document.querySelectorAll('.export-dropdown').forEach(dd => dd.classList.remove('open'));
+    showExportLoading('Generando archivo Excel...', 'Descargando datos del servidor...');
+
+    try {
+        await new Promise(r => setTimeout(r, 500)); // Show loading briefly
+
+        if (target === 'all') {
+            window.location.href = `${API_BASE}/projects/export/all`;
+        } else {
+            if (!target) {
+                alert('No se ha seleccionado ningún proyecto.');
+                hideExportLoading();
+                return;
+            }
+            window.location.href = `${API_BASE}/projects/${target}/export`;
+        }
+
+        // Hide loading after a delay since download doesn't trigger load event
+        setTimeout(hideExportLoading, 2000);
+    } catch (err) {
+        console.error('Export error:', err);
+        alert('❌ Error al exportar: ' + err.message);
+        hideExportLoading();
+    }
+}
+
+function buildSummarySheet(workbook) {
+    const ws = workbook.addWorksheet('Resumen General', {
+        properties: { tabColor: { argb: 'FF00FF9D' } }
+    });
+
+    // Column widths
+    ws.columns = [
+        { width: 5 },   // A: #
+        { width: 30 },  // B: Nombre
+        { width: 40 },  // C: Descripción
+        { width: 12 },  // D: Actividades
+        { width: 12 },  // E: Días Total
+        { width: 14 },  // F: Progreso %
+        { width: 28 },  // G: Barra de Progreso
+        { width: 14 },  // H: Estado
+    ];
+
+    // ── Title ──
+    ws.mergeCells('A1:H1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = '📊 LABORATORIO VIVO ITNN — Resumen de Proyectos';
+    titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 40;
+
+    // ── KPIs Row ──
+    ws.mergeCells('A2:H2');
+    const kpiCell = ws.getCell('A2');
+    kpiCell.value = `Avance Global: ${globalProgress()}%  |  Proyectos: ${projects.length}  |  Días Totales: ${globalTotalDays()}  |  Fecha: ${new Date().toLocaleDateString('es-MX')}`;
+    kpiCell.font = { size: 10, italic: true, color: { argb: 'FF94A3B8' } };
+    kpiCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    kpiCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(2).height = 28;
+
+    // ── Global Progress Bar Row ──
+    ws.mergeCells('A3:H3');
+    const globalBarCell = ws.getCell('A3');
+    globalBarCell.value = progressBarText(globalProgress());
+    globalBarCell.font = { size: 12, bold: true, color: { argb: 'FF10B981' }, name: 'Consolas' };
+    globalBarCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    globalBarCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(3).height = 30;
+
+    // Empty row
+    ws.getRow(4).height = 10;
+
+    // ── Headers ──
+    const headers = ['#', 'Proyecto', 'Descripción', 'Actividades', 'Días', 'Progreso', 'Barra de Progreso', 'Estado'];
+    const headerRow = ws.getRow(5);
+    headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+            bottom: { style: 'medium', color: { argb: 'FF00FF9D' } }
+        };
+    });
+    headerRow.height = 28;
+
+    // ── Data Rows ──
+    (sortedProjects() || []).forEach((p, idx) => {
+        const pct = projectProgress(p);
+        const actCount = (p.activities || []).length;
+        const td = totalDays(p);
+        const row = ws.getRow(6 + idx);
+
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = p.name;
+        row.getCell(3).value = p.description || '';
+        row.getCell(4).value = actCount;
+        row.getCell(5).value = td;
+        row.getCell(6).value = pct / 100; // as fraction for percentage format
+        row.getCell(7).value = progressBarText(pct);
+        row.getCell(8).value = pct >= 100 ? '✅ Completado' : (pct > 0 ? '🔄 En Progreso' : '⏳ Pendiente');
+
+        // Style the progress bar cell
+        row.getCell(7).font = { name: 'Consolas', size: 9, color: { argb: pct >= 100 ? 'FF10B981' : (pct > 60 ? 'FF00CCFF' : (pct > 30 ? 'FFF59E0B' : 'FFEF4444')) } };
+
+        // Style the percentage cell
+        row.getCell(6).numFmt = '0%';
+        row.getCell(6).font = { bold: true, size: 11, color: { argb: hexToArgb(p.color || '#00ccff') } };
+
+        // Project color indicator
+        row.getCell(2).font = { bold: true, size: 10, color: { argb: hexToArgb(p.color || '#00ccff') } };
+        row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightenHex(p.color || '#00ccff', 0.9) } };
+
+        // Alternate row background
+        const bgColor = idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+        for (let c = 1; c <= 8; c++) {
+            if (c !== 2) {
+                row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+            }
+            row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(c).border = {
+                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+        }
+        row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+        row.getCell(3).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+
+        row.height = 30;
+    });
+
+    // Conditional formatting: data bar for progress column
+    const lastDataRow = 5 + projects.length;
+    ws.addConditionalFormatting({
+        ref: `F6:F${lastDataRow}`,
+        rules: [{
+            type: 'dataBar',
+            minLength: 0,
+            maxLength: 100,
+            gradient: true,
+            border: false,
+            negativeBarBorderColorSameAsPositive: true,
+            axisPosition: 'none'
+        }]
+    });
+}
+
+function buildProjectSheet(workbook, proj, isStandalone = false) {
+    const sheetName = sanitizeSheetName(proj.name);
+    const ws = workbook.addWorksheet(sheetName, {
+        properties: { tabColor: { argb: hexToArgb(proj.color || '#00ccff') } }
+    });
+
+    const pct = projectProgress(proj);
+    const acts = [...(proj.activities || [])].sort((a, b) =>
+        (PRIORITY_ORDER[a.priority || 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority || 'medium'] ?? 2)
+    );
+
+    // Column widths
+    ws.columns = [
+        { width: 5 },   // A: #
+        { width: 35 },  // B: Actividad
+        { width: 12 },  // C: Prioridad
+        { width: 10 },  // D: Días
+        { width: 12 },  // E: Progreso %
+        { width: 28 },  // F: Barra de Progreso
+        { width: 14 },  // G: Estado
+        { width: 14 },  // H: Inicio
+        { width: 14 },  // I: Fin
+        { width: 20 },  // J: Creado Por
+        { width: 40 },  // K: Última Justificación
+    ];
+
+    const projColor = hexToArgb(proj.color || '#00ccff');
+    const projColorLight = lightenHex(proj.color || '#00ccff', 0.9);
+
+    // ── Project Title ──
+    ws.mergeCells('A1:K1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = `${proj.name}`;
+    titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: projColor } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 40;
+
+    // ── Project Info ──
+    ws.mergeCells('A2:K2');
+    const infoCell = ws.getCell('A2');
+    infoCell.value = `${proj.description || 'Sin descripción'}  |  Avance: ${pct}%  |  Días: ${totalDays(proj)}  |  Actividades: ${acts.length}`;
+    infoCell.font = { size: 10, italic: true, color: { argb: 'FF64748B' } };
+    infoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: projColorLight } };
+    infoCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(2).height = 26;
+
+    // ── Progress Bar Row ──
+    ws.mergeCells('A3:K3');
+    const barCell = ws.getCell('A3');
+    barCell.value = progressBarText(pct);
+    barCell.font = { size: 14, bold: true, color: { argb: projColor }, name: 'Consolas' };
+    barCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    barCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(3).height = 32;
+
+    // Empty row
+    ws.getRow(4).height = 8;
+
+    // ── Headers ──
+    const headers = ['#', 'Actividad', 'Prioridad', 'Días', 'Progreso', 'Barra de Progreso', 'Estado', 'Inicio', 'Fin', 'Creado Por', 'Justificación'];
+    const headerRow = ws.getRow(5);
+    headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+            bottom: { style: 'medium', color: { argb: projColor } }
+        };
+    });
+    headerRow.height = 28;
+
+    // ── Activity Rows ──
+    (acts || []).forEach((act, idx) => {
+        const row = ws.getRow(6 + idx);
+        const prio = act.priority || 'medium';
+        const prioColors = priorityColor(prio);
+        const actPct = act.progress || 0;
+        const lastLog = (act.logs && act.logs.length > 0) ? act.logs[act.logs.length - 1] : null;
+        const creatorName = act.creator ? act.creator.name : 'N/A';
+
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = act.text;
+        row.getCell(3).value = PRIORITY_LABELS[prio] || prio;
+        row.getCell(4).value = act.days || 1;
+        row.getCell(5).value = actPct / 100; // fraction for percentage
+        row.getCell(6).value = progressBarText(actPct);
+        row.getCell(7).value = actPct >= 100 ? '✅ Completado' : (actPct > 0 ? '🔄 En Progreso' : '⏳ Pendiente');
+        row.getCell(8).value = (act.start_time || act.startTime || '—');
+        row.getCell(9).value = (act.end_time || act.endTime || '—');
+        row.getCell(10).value = creatorName;
+        row.getCell(11).value = lastLog ? lastLog.justification : '';
+
+        // Style priority cell
+        row.getCell(3).font = { bold: true, size: 9, color: { argb: prioColors.fg } };
+        row.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: prioColors.bg } };
+
+        // Style progress percentage
+        row.getCell(5).numFmt = '0%';
+        row.getCell(5).font = { bold: true, size: 11, color: { argb: actPct >= 100 ? 'FF10B981' : (actPct > 50 ? 'FF00CCFF' : (actPct > 0 ? 'FFF59E0B' : 'FFEF4444')) } };
+
+        // Style progress bar text
+        row.getCell(6).font = { name: 'Consolas', size: 9, color: { argb: actPct >= 100 ? 'FF10B981' : (actPct > 50 ? 'FF00CCFF' : (actPct > 0 ? 'FFF59E0B' : 'FFEF4444')) } };
+
+        // Alternate row
+        const bgColor = idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+        for (let c = 1; c <= 11; c++) {
+            if (c !== 3) {
+                row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+            }
+            row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(c).border = {
+                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+        }
+        row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+        row.getCell(11).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+
+        // Strikethrough if completed
+        if (actPct >= 100) {
+            row.getCell(2).font = { size: 10, color: { argb: 'FF94A3B8' }, strike: true };
+        }
+
+        row.height = 30;
+    });
+
+    // Conditional formatting: data bar for progress column
+    const lastRow = 5 + acts.length;
+    if (acts.length > 0) {
+        ws.addConditionalFormatting({
+            ref: `E6:E${lastRow}`,
+            rules: [{
+                type: 'dataBar',
+                minLength: 0,
+                maxLength: 100,
+                gradient: true,
+                border: false,
+                negativeBarBorderColorSameAsPositive: true,
+                axisPosition: 'none'
+            }]
+        });
+    }
+
+    // ── Gantt-like Visual at the bottom ──
+    const ganttStartRow = lastRow + 3;
+    ws.mergeCells(`A${ganttStartRow}:K${ganttStartRow}`);
+    const ganttTitle = ws.getCell(`A${ganttStartRow}`);
+    ganttTitle.value = '📊 Diagrama Gantt Visual (Barra de Progreso por Actividad)';
+    ganttTitle.font = { size: 12, bold: true, color: { argb: 'FF0F172A' } };
+    ganttTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    ganttTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(ganttStartRow).height = 30;
+
+    // Gantt header
+    const maxDays = Math.max(...acts.map(a => parseInt(a.days) || 1), 1);
+    const ganttHeaderRow = ws.getRow(ganttStartRow + 1);
+    ganttHeaderRow.getCell(1).value = '#';
+    ganttHeaderRow.getCell(2).value = 'Actividad';
+    for (let d = 1; d <= Math.min(maxDays + 2, 30); d++) {
+        ganttHeaderRow.getCell(2 + d).value = `D${d}`;
+        ganttHeaderRow.getCell(2 + d).font = { size: 8, bold: true, color: { argb: 'FF94A3B8' } };
+        ganttHeaderRow.getCell(2 + d).alignment = { horizontal: 'center' };
+    }
+    ganttHeaderRow.getCell(1).font = { bold: true, size: 9, color: { argb: 'FF64748B' } };
+    ganttHeaderRow.getCell(2).font = { bold: true, size: 9, color: { argb: 'FF64748B' } };
+
+    // Gantt bars
+    acts.forEach((act, idx) => {
+        const row = ws.getRow(ganttStartRow + 2 + idx);
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = act.text;
+        row.getCell(2).font = { size: 9 };
+        row.getCell(2).alignment = { horizontal: 'left' };
+
+        const days = parseInt(act.days) || 1;
+        const actPct = act.progress || 0;
+        const filledDays = Math.round(days * actPct / 100);
+
+        for (let d = 1; d <= Math.min(days, 30); d++) {
+            const cell = row.getCell(2 + d);
+            if (d <= filledDays) {
+                // Filled portion
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: projColor } };
+                cell.value = '';
+            } else {
+                // Empty portion
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: projColorLight } };
+                cell.value = '';
+            }
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FFFFFFFF' } },
+                bottom: { style: 'thin', color: { argb: 'FFFFFFFF' } },
+                left: d === 1 ? { style: 'thin', color: { argb: projColor } } : undefined,
+                right: d === days ? { style: 'thin', color: { argb: projColor } } : undefined,
+            };
+        }
+
+        // Progress label after bar
+        const labelCell = row.getCell(2 + Math.min(days, 30) + 1);
+        labelCell.value = `${actPct}%`;
+        labelCell.font = { size: 8, bold: true, color: { argb: actPct >= 100 ? 'FF10B981' : projColor } };
+
+        row.height = 22;
+    });
+}
+
+/* ═══════════════════════════════════════════
+   PDF Export with html2canvas + jsPDF
+   ═══════════════════════════════════════════ */
+async function exportPDF(target) {
+    document.querySelectorAll('.export-dropdown').forEach(dd => dd.classList.remove('open'));
+    showExportLoading('Generando archivo PDF...', 'Construyendo documento con gráficos');
+
+    try {
+        await new Promise(r => setTimeout(r, 100));
+
+        const { jsPDF } = window.jspdf;
+
+        if (target === 'all') {
+            buildAllProjectsPDF(jsPDF);
+        } else {
+            const proj = projects.find(p => p.id == target);
+            if (!proj) { hideExportLoading(); return; }
+            buildSingleProjectPDF(jsPDF, proj);
+        }
+    } catch (err) {
+        console.error('Export PDF error:', err);
+        alert('❌ Error al generar el PDF: ' + err.message);
+    }
+    hideExportLoading();
+}
+
+/* ── PDF Color Helpers ── */
+function hexToRgb(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    return {
+        r: parseInt(hex.substring(0, 2), 16),
+        g: parseInt(hex.substring(2, 4), 16),
+        b: parseInt(hex.substring(4, 6), 16)
+    };
+}
+
+function pdfPriorityColor(prio) {
+    switch (prio) {
+        case 'critical': return { r: 220, g: 38, b: 38 };
+        case 'high': return { r: 217, g: 119, b: 6 };
+        case 'medium': return { r: 99, g: 102, b: 241 };
+        case 'low': return { r: 22, g: 163, b: 74 };
+        default: return { r: 100, g: 116, b: 139 };
+    }
+}
+
+function pdfProgressColor(pct) {
+    if (pct >= 100) return { r: 16, g: 185, b: 129 };
+    if (pct > 60) return { r: 14, g: 165, b: 233 };
+    if (pct > 30) return { r: 245, g: 158, b: 11 };
+    return { r: 239, g: 68, b: 68 };
+}
+
+/* ── Draw a PDF page header ── */
+function drawPDFHeader(pdf, title, subtitle, pageNum, totalPages) {
+    const pw = pdf.internal.pageSize.getWidth();
+    // Header bar
+    pdf.setFillColor(241, 245, 249);
+    pdf.rect(0, 0, pw, 20, 'F');
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(0, 20, pw, 20);
+
+    // Title
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(15, 23, 42);
+    pdf.text(title, 10, 9);
+
+    // Subtitle
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(100, 116, 139);
+    pdf.text(subtitle || `Exportado: ${new Date().toLocaleString('es-MX')}`, 10, 15);
+
+    // Page number
+    if (totalPages) {
+        pdf.text(`Pág. ${pageNum}/${totalPages}`, pw - 10, 9, { align: 'right' });
+    }
+
+    // Logo text
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'italic');
+    pdf.setTextColor(148, 163, 184);
+    pdf.text('Laboratorio Vivo ITNN', pw - 10, 15, { align: 'right' });
+
+    return 25; // content start Y
+}
+
+/* ── Draw a progress bar as filled rectangle ── */
+function drawProgressBar(pdf, x, y, width, height, pct, color) {
+    // Background
+    pdf.setFillColor(226, 232, 240);
+    pdf.roundedRect(x, y, width, height, 1, 1, 'F');
+    // Fill
+    if (pct > 0) {
+        const fillW = Math.max((width * Math.min(pct, 100)) / 100, 2);
+        pdf.setFillColor(color.r, color.g, color.b);
+        pdf.roundedRect(x, y, fillW, height, 1, 1, 'F');
+    }
+    // Label
+    pdf.setFontSize(6);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(30, 41, 59);
+    pdf.text(`${pct}%`, x + width / 2, y + height / 2 + 1.5, { align: 'center' });
+}
+
+/* ── Draw a Gantt bar ── */
+function drawGanttBar(pdf, x, y, totalWidth, days, pct, projColor, maxDays) {
+    const barW = Math.max((totalWidth * days) / maxDays, 4);
+    const filledW = (barW * Math.min(pct, 100)) / 100;
+
+    // Background bar
+    const lightColor = { r: Math.min(projColor.r + 180, 245), g: Math.min(projColor.g + 180, 245), b: Math.min(projColor.b + 180, 245) };
+    pdf.setFillColor(lightColor.r, lightColor.g, lightColor.b);
+    pdf.roundedRect(x, y, barW, 5, 1, 1, 'F');
+
+    // Filled bar
+    if (pct > 0) {
+        pdf.setFillColor(projColor.r, projColor.g, projColor.b);
+        pdf.roundedRect(x, y, Math.max(filledW, 2), 5, 1, 1, 'F');
+    }
+
+    // Label
+    pdf.setFontSize(5.5);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(30, 41, 59);
+    pdf.text(`${days}d · ${pct}%`, x + barW + 2, y + 3.5);
+}
+
+/* ═══════════════════════════════════════════
+   Build PDF for ALL projects
+   ═══════════════════════════════════════════ */
+function buildAllProjectsPDF(jsPDF) {
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    let y = drawPDFHeader(pdf, 'Resumen General de Proyectos', `Avance Global: ${globalProgress()}%  |  Proyectos: ${projects.length}  |  Días: ${globalTotalDays()}`);
+
+    // ── KPI Cards ──
+    const kpiW = 55;
+    const kpiH = 16;
+    const kpiGap = 8;
+    const kpiStartX = (pw - (4 * kpiW + 3 * kpiGap)) / 2;
+    const kpis = [
+        { label: 'Avance Global', value: `${globalProgress()}%`, color: { r: 16, g: 185, b: 129 } },
+        { label: 'Proyectos', value: `${projects.length}`, color: { r: 14, g: 165, b: 233 } },
+        { label: 'Tareas Pendientes', value: `${projects.reduce((s, p) => s + (p.activities || []).filter(a => (a.progress || 0) < 100).length, 0)}`, color: { r: 245, g: 158, b: 11 } },
+        { label: 'Días Totales', value: `${globalTotalDays()}`, color: { r: 99, g: 102, b: 241 } },
+    ];
+
+    kpis.forEach((kpi, i) => {
+        const kx = kpiStartX + i * (kpiW + kpiGap);
+        pdf.setFillColor(248, 250, 252);
+        pdf.setDrawColor(226, 232, 240);
+        pdf.roundedRect(kx, y, kpiW, kpiH, 2, 2, 'FD');
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 116, 139);
+        pdf.text(kpi.label, kx + kpiW / 2, y + 5, { align: 'center' });
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(kpi.color.r, kpi.color.g, kpi.color.b);
+        pdf.text(kpi.value, kx + kpiW / 2, y + 13, { align: 'center' });
+    });
+
+    y += kpiH + 6;
+
+    // ── Global Progress Bar ──
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(30, 41, 59);
+    pdf.text('Progreso General', 10, y + 3);
+    drawProgressBar(pdf, 55, y, pw - 65, 5, globalProgress(), { r: 16, g: 185, b: 129 });
+    y += 10;
+
+    // ── Projects Table ──
+    const colX = [10, 15, 85, 110, 135, 160, pw - 10];
+    const colHeaders = ['#', 'Proyecto', 'Actividades', 'Días', 'Progreso', 'Estado'];
+
+    // Table header
+    pdf.setFillColor(30, 41, 59);
+    pdf.rect(10, y, pw - 20, 7, 'F');
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    colHeaders.forEach((h, i) => {
+        pdf.text(h, colX[i] + (i === 0 ? 1 : 2), y + 5);
+    });
+    y += 7;
+
+    // Table rows
+    const sorted = sortedProjects();
+    sorted.forEach((p, idx) => {
+        if (y > ph - 20) {
+            pdf.addPage();
+            y = drawPDFHeader(pdf, 'Resumen General de Proyectos (cont.)', null);
+        }
+
+        const pct = projectProgress(p);
+        const bgColor = idx % 2 === 0 ? { r: 248, g: 250, b: 252 } : { r: 255, g: 255, b: 255 };
+        pdf.setFillColor(bgColor.r, bgColor.g, bgColor.b);
+        pdf.rect(10, y, pw - 20, 10, 'F');
+
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(`${idx + 1}`, colX[0] + 1, y + 6.5);
+
+        // Project name with color dot
+        const pc = hexToRgb(p.color || '#00ccff');
+        pdf.setFillColor(pc.r, pc.g, pc.b);
+        pdf.circle(colX[1] + 2, y + 5, 1.5, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(p.name.substring(0, 35), colX[1] + 6, y + 6.5);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${(p.activities || []).length}`, colX[2] + 2, y + 6.5);
+        pdf.text(`${totalDays(p)}`, colX[3] + 2, y + 6.5);
+
+        // Progress bar in cell
+        drawProgressBar(pdf, colX[4], y + 2, 22, 4.5, pct, pdfProgressColor(pct));
+
+        // Status
+        pdf.setFontSize(6);
+        pdf.text(pct >= 100 ? 'Completado' : (pct > 0 ? 'En Progreso' : 'Pendiente'), colX[5] + 2, y + 6.5);
+
+        y += 10;
+    });
+
+    // ── Gantt Chart Section ──
+    y += 6;
+    if (y > ph - 45) {
+        pdf.addPage();
+        y = drawPDFHeader(pdf, 'Diagrama Gantt — Todos los Proyectos', null);
+    }
+
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(15, 23, 42);
+    pdf.text('Diagrama Gantt por Proyecto', 10, y);
+    y += 5;
+
+    const maxDays = Math.max(...sorted.map(p => totalDays(p)), 1);
+    const ganttLabelW = 70;
+    const ganttBarArea = pw - ganttLabelW - 20;
+
+    sorted.forEach((p, idx) => {
+        if (y > ph - 15) {
+            pdf.addPage();
+            y = drawPDFHeader(pdf, 'Diagrama Gantt (cont.)', null);
+        }
+
+        const pct = projectProgress(p);
+        const pc = hexToRgb(p.color || '#00ccff');
+
+        // Label
+        pdf.setFillColor(pc.r, pc.g, pc.b);
+        pdf.circle(12, y + 2.5, 1.5, 'F');
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(p.name.substring(0, 30), 16, y + 3.5);
+
+        // Gantt bar
+        drawGanttBar(pdf, ganttLabelW, y, ganttBarArea, totalDays(p), pct, pc, maxDays);
+
+        y += 8;
+    });
+
+    // Footer
+    pdf.setFontSize(6);
+    pdf.setTextColor(148, 163, 184);
+    pdf.text('Generado por Laboratorio Vivo ITNN Dashboard', pw / 2, ph - 4, { align: 'center' });
+
+    pdf.save(`Todos_Proyectos_${formatDateFile()}.pdf`);
+}
+
+/* ═══════════════════════════════════════════
+   Build PDF for SINGLE project
+   ═══════════════════════════════════════════ */
+function buildSingleProjectPDF(jsPDF, proj) {
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const pct = projectProgress(proj);
+    const pc = hexToRgb(proj.color || '#00ccff');
+
+    let y = drawPDFHeader(pdf, proj.name, proj.description || 'Sin descripción');
+
+    // ── Project Summary Bar ──
+    pdf.setFillColor(pc.r, pc.g, pc.b);
+    pdf.roundedRect(10, y, pw - 20, 14, 2, 2, 'F');
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(proj.name, 16, y + 6);
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Avance: ${pct}%  |  Días: ${totalDays(proj)}  |  Actividades: ${(proj.activities || []).length}`, 16, y + 11);
+
+    // Progress bar inside the colored banner
+    // Progress bar inside the colored banner
+    const barX = pw - 80;
+    // Track (Light Grey)
+    pdf.setFillColor(200, 200, 200);
+    pdf.roundedRect(barX, y + 4, 60, 5, 1, 1, 'F');
+    const filledW = (60 * Math.min(pct, 100)) / 100;
+    // Fill (White)
+    if (filledW > 0) {
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(barX, y + 4, Math.max(filledW, 2), 5, 1, 1, 'F');
+    }
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(pc.r, pc.g, pc.b);
+    pdf.text(`${pct}%`, barX + 30, y + 8, { align: 'center' });
+
+    y += 20;
+
+    // ── Activities Table ──
+    const acts = [...(proj.activities || [])].sort((a, b) =>
+        (PRIORITY_ORDER[a.priority || 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority || 'medium'] ?? 2)
+    );
+
+    const tColX = [10, 15, 95, 118, 138, 160, 185, 210, pw - 10];
+    const tHeaders = ['#', 'Actividad', 'Prioridad', 'Días', 'Progreso', 'Estado', 'Inicio', 'Fin'];
+
+    // Table header
+    pdf.setFillColor(30, 41, 59);
+    pdf.rect(10, y, pw - 20, 7, 'F');
+    pdf.setFontSize(6.5);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    tHeaders.forEach((h, i) => {
+        pdf.text(h, tColX[i] + (i === 0 ? 1 : 2), y + 5);
+    });
+    y += 7;
+
+    // Activity rows
+    acts.forEach((act, idx) => {
+        if (y > ph - 25) {
+            pdf.addPage();
+            y = drawPDFHeader(pdf, `${proj.name} — Actividades (cont.)`, null);
+        }
+
+        const actPct = act.progress || 0;
+        const prio = act.priority || 'medium';
+        const prioC = pdfPriorityColor(prio);
+        const bgColor = idx % 2 === 0 ? { r: 248, g: 250, b: 252 } : { r: 255, g: 255, b: 255 };
+
+        pdf.setFillColor(bgColor.r, bgColor.g, bgColor.b);
+        pdf.rect(10, y, pw - 20, 10, 'F');
+
+        pdf.setFontSize(6.5);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(30, 41, 59);
+
+        // #
+        pdf.text(`${idx + 1}`, tColX[0] + 1, y + 6.5);
+
+        // Activity name
+        pdf.setFont('helvetica', actPct >= 100 ? 'normal' : 'bold');
+        if (actPct >= 100) pdf.setTextColor(148, 163, 184);
+        else pdf.setTextColor(30, 41, 59);
+        pdf.text(act.text.substring(0, 40), tColX[1] + 2, y + 6.5);
+
+        // Priority badge
+        pdf.setFillColor(prioC.r, prioC.g, prioC.b);
+        pdf.roundedRect(tColX[2] + 1, y + 2.5, 18, 4.5, 1, 1, 'F');
+        pdf.setFontSize(5.5);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(PRIORITY_LABELS[prio] || prio, tColX[2] + 10, y + 5.5, { align: 'center' });
+
+        // Days
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(30, 41, 59);
+        pdf.setFontSize(6.5);
+        pdf.text(`${act.days || 1}`, tColX[3] + 2, y + 6.5);
+
+        // Progress bar
+        drawProgressBar(pdf, tColX[4] + 1, y + 2.5, 18, 4.5, actPct, pdfProgressColor(actPct));
+
+        // Status
+        pdf.setFontSize(5.5);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(30, 41, 59);
+        const statusText = actPct >= 100 ? 'Completado' : (actPct > 0 ? 'En Progreso' : 'Pendiente');
+        pdf.text(statusText, tColX[5] + 2, y + 6.5);
+
+        // Start / End times
+        pdf.setFontSize(6);
+        pdf.text(act.start_time || act.startTime || '—', tColX[6] + 2, y + 6.5);
+        pdf.text(act.end_time || act.endTime || '—', tColX[7] + 2, y + 6.5);
+
+        y += 10;
+    });
+
+    // ── Gantt Diagram ──
+    y += 8;
+    if (y > ph - 40) {
+        pdf.addPage();
+        y = drawPDFHeader(pdf, `${proj.name} — Diagrama Gantt`, null);
+    }
+
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(15, 23, 42);
+    pdf.text('Diagrama Gantt de Actividades', 10, y);
+    y += 3;
+
+    // Separator line
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(10, y, pw - 10, y);
+    y += 4;
+
+    const maxDays = Math.max(...acts.map(a => parseInt(a.days) || 1), 1);
+    const ganttLabelW = 80;
+    const ganttBarArea = pw - ganttLabelW - 25;
+
+    // Day axis header
+    pdf.setFontSize(5);
+    pdf.setTextColor(148, 163, 184);
+    const dayStep = maxDays > 20 ? 5 : (maxDays > 10 ? 2 : 1);
+    for (let d = dayStep; d <= maxDays; d += dayStep) {
+        const dx = ganttLabelW + (ganttBarArea * d / maxDays);
+        pdf.text(`${d}`, dx, y, { align: 'center' });
+        // Grid line
+        pdf.setDrawColor(240, 240, 240);
+        pdf.line(dx, y + 1, dx, y + 1 + acts.length * 8);
+    }
+    y += 3;
+
+    acts.forEach((act, idx) => {
+        if (y > ph - 12) {
+            pdf.addPage();
+            y = drawPDFHeader(pdf, `${proj.name} — Gantt (cont.)`, null);
+            y += 2;
+        }
+
+        const actPct = act.progress || 0;
+
+        // Label
+        pdf.setFontSize(6);
+        pdf.setFont('helvetica', actPct >= 100 ? 'normal' : 'bold');
+        pdf.setTextColor(actPct >= 100 ? 148 : 30, actPct >= 100 ? 163 : 41, actPct >= 100 ? 184 : 59);
+        pdf.text(`${idx + 1}. ${act.text.substring(0, 35)}`, 12, y + 3.5);
+
+        // Gantt bar
+        drawGanttBar(pdf, ganttLabelW, y, ganttBarArea, parseInt(act.days) || 1, actPct, pc, maxDays);
+
+        y += 8;
+    });
+
+    // Footer
+    pdf.setFontSize(6);
+    pdf.setTextColor(148, 163, 184);
+    pdf.text('Generado por Laboratorio Vivo ITNN Dashboard', pw / 2, ph - 4, { align: 'center' });
+
+    pdf.save(`Proyecto_${sanitizeFilename(proj.name)}_${formatDateFile()}.pdf`);
+}
+
+/* ═══════════════════════════════════════════
+   Export Utility Functions
+   ═══════════════════════════════════════════ */
+function downloadBuffer(buffer, filename) {
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function sanitizeFilename(name) {
+    return name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s_-]/g, '').replace(/\s+/g, '_').substring(0, 50);
+}
+
+function sanitizeSheetName(name) {
+    return name.replace(/[\\/*?:\[\]]/g, '').substring(0, 31);
+}
+
+function formatDateFile() {
+    return new Date().toISOString().split('T')[0];
+}
+
+// Legacy compatibility
+function exportToExcel(projectId) {
+    exportXLSX(projectId);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
