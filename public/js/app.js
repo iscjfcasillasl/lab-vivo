@@ -734,7 +734,6 @@ function openModal() {
     document.getElementById('inp-name').value = '';
     document.getElementById('inp-desc').value = '';
     document.getElementById('activities-list').innerHTML = '';
-    document.getElementById('inp-justification').value = '';
     document.getElementById('modal-title').innerText = 'Nuevo Proyecto';
     document.getElementById('modal-save-btn').innerHTML = '<i class="ri-add-line"></i> Crear Proyecto';
     addActivityRow();
@@ -757,7 +756,6 @@ function openEditModal(key) {
     modalState = { mode: 'edit', editKey: key, projectId: proj.id };
     document.getElementById('inp-name').value = proj.name;
     document.getElementById('inp-desc').value = proj.description || proj.desc || '';
-    document.getElementById('inp-justification').value = '';
     document.getElementById('activities-list').innerHTML = '';
 
     // In edit mode, don't show activity rows (activities are managed individually now)
@@ -820,15 +818,9 @@ function addActivityRow(name = '', prio = 'medium', days = 1, start = '', end = 
 async function saveProject() {
     const name = document.getElementById('inp-name').value.trim();
     const desc = document.getElementById('inp-desc').value.trim();
-    const justification = document.getElementById('inp-justification').value.trim();
 
     if (!name) {
         alert('⚠️ El nombre del proyecto es obligatorio.');
-        return;
-    }
-    if (!justification || justification.length < 5) {
-        alert('⚠️ Debes proporcionar una justificación de al menos 5 caracteres.');
-        document.getElementById('inp-justification').focus();
         return;
     }
 
@@ -860,7 +852,7 @@ async function saveProject() {
                     start_time: row.querySelector('.act-start').value || null,
                     end_time: row.querySelector('.act-end').value || null,
                     progress: parseInt(row.querySelector('.act-progress').value) || 0,
-                    justification: justification,
+                    justification: 'Creación inicial del proyecto',
                 });
             }
         }

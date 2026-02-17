@@ -49,22 +49,20 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
-                <div class="breadcrumbs">
-                    <span>Proyectos</span> <i class="ri-arrow-right-s-line"></i> <span class="current" id="view-title">Vista Global</span>
-                </div>
+                <div style="display:none" id="view-title"></div>
 
                 <div style="display: flex; align-items: center; gap: 2rem;">
                     <div class="kpi-bar">
-                        <div class="kpi-pill" title="Progreso Global">
+                        <div class="kpi-pill">
                             <i class="ri-checkbox-circle-line"></i> <span id="kpi-progress">0%</span>
                         </div>
-                        <div class="kpi-pill" title="Tareas Pendientes">
+                        <div class="kpi-pill">
                             <i class="ri-list-check"></i> <span id="kpi-pending-tasks">0</span>
                         </div>
-                        <div class="kpi-pill" title="Total Proyectos">
+                        <div class="kpi-pill">
                             <i class="ri-folder-info-line"></i> <span id="kpi-total-projects">0</span>
                         </div>
-                        <div class="kpi-pill" title="Días Totales de Trabajo">
+                        <div class="kpi-pill">
                             <i class="ri-time-line"></i> <span id="kpi-total-days">0</span>
                         </div>
                     </div>
@@ -95,13 +93,13 @@
 
                             <div style="font-size: 0.65rem; font-weight: 800; color: var(--text-muted); padding: 5px 12px; text-transform: uppercase; letter-spacing: 1px;">Apariencia</div>
                             <div class="theme-pill-selector">
-                                <button onclick="setTheme('light')" class="theme-pill" id="theme-light" title="Claro">
+                                <button onclick="setTheme('light')" class="theme-pill" id="theme-light">
                                     <i class="ri-sun-line"></i>
                                 </button>
-                                <button onclick="setTheme('dark')" class="theme-pill" id="theme-dark" title="Oscuro">
+                                <button onclick="setTheme('dark')" class="theme-pill" id="theme-dark">
                                     <i class="ri-moon-line"></i>
                                 </button>
-                                <button onclick="setTheme('system')" class="theme-pill" id="theme-system" title="Sistema">
+                                <button onclick="setTheme('system')" class="theme-pill" id="theme-system">
                                     <i class="ri-computer-line"></i>
                                 </button>
                             </div>
@@ -352,10 +350,7 @@
                     <div id="activities-list"></div>
                     <button type="button" class="btn-add-activity" onclick="addActivityRow()"><i class="ri-add-line"></i> Agregar Actividad</button>
                 </div>
-                <div class="form-group">
-                    <label style="color:var(--warning)"><i class="ri-file-text-line"></i> Justificación <span style="color:var(--danger);font-size:0.7rem">(obligatorio)</span></label>
-                    <textarea id="inp-justification" rows="2" placeholder="Describe el motivo de la creación o modificación del proyecto..." style="width:100%; padding:10px; background:var(--bg-dark); color:white; border:1px solid var(--border); border-radius:8px; resize:vertical; font-family:inherit; font-size:0.85rem"></textarea>
-                </div>
+
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
