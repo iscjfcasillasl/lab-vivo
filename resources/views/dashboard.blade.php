@@ -48,21 +48,28 @@
 
         <!-- Main Content -->
         <main class="main-content">
+            <div style="display:none" id="view-title"></div>
             <header class="top-bar">
-                <div style="display:none" id="view-title"></div>
-
                 <div class="kpi-bar">
                     <div class="kpi-pill">
-                        <i class="ri-checkbox-circle-line"></i> <span id="kpi-progress">0%</span>
+                        <i class="ri-checkbox-circle-line"></i> 
+                        <label>Avance:</label>
+                        <span id="kpi-progress">0%</span>
                     </div>
                     <div class="kpi-pill">
-                        <i class="ri-list-check"></i> <span id="kpi-pending-tasks">0</span>
+                        <i class="ri-list-check"></i> 
+                        <label>Tareas:</label>
+                        <span id="kpi-pending-tasks">0</span>
                     </div>
                     <div class="kpi-pill">
-                        <i class="ri-folder-info-line"></i> <span id="kpi-total-projects">0</span>
+                        <i class="ri-folder-info-line"></i> 
+                        <label>Proyectos:</label>
+                        <span id="kpi-total-projects">0</span>
                     </div>
                     <div class="kpi-pill">
-                        <i class="ri-time-line"></i> <span id="kpi-total-days">0</span>
+                        <i class="ri-time-line"></i> 
+                        <label>Días:</label>
+                        <span id="kpi-total-days">0</span>
                     </div>
                 </div>
 
@@ -114,7 +121,6 @@
                             </form>
                         </div>
                     </div>
-                </div>
             </header>
 
             <!-- Global Gantt View -->
