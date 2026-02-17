@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio Vivo ITNN | Dashboard de Ejecución</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <i class="ri-plant-line logo-icon"></i>
+                <h1>Laboratorio<br><span>Vivo ITNN</span></h1>
+            </div>
+            <nav class="nav-menu" id="project-nav">
+                <a href="#" class="nav-item active" data-project="all" onclick="selectProject('all', this)">
+                    <i class="ri-dashboard-line"></i> Vista Global
+                </a>
+                <!-- Project links injected by JS -->
+            </nav>
+            <div class="sidebar-footer">
+                <button class="btn-add" onclick="openModal()"><i class="ri-add-circle-line"></i> Nuevo Proyecto</button>
+                <button class="btn-reset" onclick="resetData()" style="margin-top:.5rem"><i class="ri-refresh-line"></i>
+                    Reiniciar Progreso</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="breadcrumbs">
+                    <span>Proyectos</span> <i class="ri-arrow-right-s-line"></i> <span class="current"
+                        id="view-title">Vista Global</span>
+                </div>
+                <div class="kpi-bar">
+                    <div class="kpi-pill">
+                        <i class="ri-checkbox-circle-line"></i>
+                        <span id="kpi-progress">0%</span> completado
+                    </div>
+                    <div class="kpi-pill">
+                        <i class="ri-time-line"></i>
+                        <span id="kpi-total-days">0</span> días totales
+                    </div>
+                    <button class="btn-add-sm" onclick="openModal()" title="Nuevo Proyecto"><i
+                            class="ri-add-line"></i></button>
+                </div>
+            </header>
+
+            <!-- Global Gantt View -->
+            <div id="view-global">
+                <section class="card gantt-section">
+                    <div class="section-header">
+                        <h2><i class="ri-bar-chart-horizontal-line"></i> Cronograma por Proyecto</h2>
+                        <p class="subtitle">Haz clic en un proyecto para ver sus actividades</p>
+                    </div>
+                    <div class="gantt-wrapper" id="gantt-global"></div>
+                </section>
+            </div>
+
+            <!-- Project Detail View -->
+            <div id="view-detail" style="display:none">
+                <div class="detail-header-card card" id="detail-header"></div>
+                <section class="card gantt-section" style="margin-top:1.5rem">
+                    <div class="section-header">
+                        <h2><i class="ri-list-check-2"></i> Actividades del Proyecto</h2>
+                    </div>
+                    <div class="gantt-wrapper" id="gantt-detail"></div>
+                </section>
+                <section class="card checklist-section" style="margin-top:1.5rem" id="checklist-panel"></section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Nuevo Proyecto -->
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="modal-title"><i class="ri-add-circle-line"></i> Nuevo Proyecto</h2>
+                <button class="modal-close" onclick="closeModal()"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label>Nombre del Proyecto</label>
+                        <input type="text" id="inp-name" placeholder="Ej: Sistema de Riego">
+                    </div>
+                    <div class="form-group">
+                        <label>Importancia</label>
+                        <div class="priority-selector" id="priority-selector">
+                            <button type="button" class="priority-btn low" data-val="low"
+                                onclick="setPriority('low')">Baja</button>
+                            <button type="button" class="priority-btn medium active" data-val="medium"
+                                onclick="setPriority('medium')">Media</button>
+                            <button type="button" class="priority-btn high" data-val="high"
+                                onclick="setPriority('high')">Alta</button>
+                            <button type="button" class="priority-btn critical" data-val="critical"
+                                onclick="setPriority('critical')">Crítica</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea id="inp-desc" rows="2" placeholder="Breve descripción del proyecto..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Color</label>
+                        <div class="color-picker" id="color-picker">
+                            <button type="button" class="color-dot active" style="background:#00ccff"
+                                data-color="#00ccff" onclick="setColor(this)"></button>
+                            <button type="button" class="color-dot" style="background:#10b981" data-color="#10b981"
+                                onclick="setColor(this)"></button>
+                            <button type="button" class="color-dot" style="background:#f59e0b" data-color="#f59e0b"
+                                onclick="setColor(this)"></button>
+                            <button type="button" class="color-dot" style="background:#a855f7" data-color="#a855f7"
+                                onclick="setColor(this)"></button>
+                            <button type="button" class="color-dot" style="background:#ec4899" data-color="#ec4899"
+                                onclick="setColor(this)"></button>
+                            <button type="button" class="color-dot" style="background:#6366f1" data-color="#6366f1"
+                                onclick="setColor(this)"></button>
+                            <button type="button" class="color-dot" style="background:#ef4444" data-color="#ef4444"
+                                onclick="setColor(this)"></button>
+                            <button type="button" class="color-dot" style="background:#14b8a6" data-color="#14b8a6"
+                                onclick="setColor(this)"></button>
+                            <button type="button" class="color-dot" style="background:#f97316" data-color="#f97316"
+                                onclick="setColor(this)"></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Icono</label>
+                        <div class="icon-picker" id="icon-picker">
+                            <button type="button" class="icon-opt active" data-icon="ri-flask-line"
+                                onclick="setIcon(this)"><i class="ri-flask-line"></i></button>
+                            <button type="button" class="icon-opt" data-icon="ri-plant-line" onclick="setIcon(this)"><i
+                                    class="ri-plant-line"></i></button>
+                            <button type="button" class="icon-opt" data-icon="ri-shield-line" onclick="setIcon(this)"><i
+                                    class="ri-shield-line"></i></button>
+                            <button type="button" class="icon-opt" data-icon="ri-droplet-line"
+                                onclick="setIcon(this)"><i class="ri-droplet-line"></i></button>
+                            <button type="button" class="icon-opt" data-icon="ri-settings-3-line"
+                                onclick="setIcon(this)"><i class="ri-settings-3-line"></i></button>
+                            <button type="button" class="icon-opt" data-icon="ri-sun-line" onclick="setIcon(this)"><i
+                                    class="ri-sun-line"></i></button>
+                            <button type="button" class="icon-opt" data-icon="ri-hammer-line" onclick="setIcon(this)"><i
+                                    class="ri-hammer-line"></i></button>
+                            <button type="button" class="icon-opt" data-icon="ri-computer-line"
+                                onclick="setIcon(this)"><i class="ri-computer-line"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Actividades <span class="label-hint">(nombre, días, y horario)</span></label>
+                    <div class="act-header-row">
+                        <span class="act-h-name">Actividad</span>
+                        <span class="act-h-days">Días</span>
+                        <span class="act-h-time">Inicio</span>
+                        <span class="act-h-time">Fin</span>
+                        <span class="act-h-del"></span>
+                    </div>
+                    <div id="activities-list"></div>
+                    <button type="button" class="btn-add-activity" onclick="addActivityRow()"><i
+                            class="ri-add-line"></i> Agregar Actividad</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+                <button class="btn-save" id="modal-save-btn" onclick="saveProject()"><i class="ri-save-line"></i> Crear
+                    Proyecto</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
