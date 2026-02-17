@@ -8,6 +8,8 @@
     --font: 'Outfit', sans-serif;
     --sidebar-w: 270px;
     --radius: 14px;
+    --primary-gradient: linear-gradient(135deg, #00ff9d 0%, #00ccff 100%);
+    --primary-dark: #059669;
 
     /* Project Colors (Fixed) */
     --c-aeroponia: #00ccff;
@@ -36,6 +38,7 @@
     --text-main: #0f172a;
     --text-muted: #64748b;
     --border: #e2e8f0;
+    --primary-gradient: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
 }
 
 * {
@@ -1294,11 +1297,11 @@ h3 i,
 }
 
 .btn-add-activity {
-    background: none;
-    border: 1px dashed var(--border);
-    color: var(--text-muted);
+    background: var(--bg-dark);
+    border: 1px dashed var(--primary);
+    color: var(--text-main);
     width: 100%;
-    padding: 8px;
+    padding: 10px;
     border-radius: 8px;
     cursor: pointer;
     font-family: var(--font);
@@ -1308,12 +1311,36 @@ h3 i,
     justify-content: center;
     gap: .5rem;
     transition: .2s;
-    margin-top: 6px;
+    margin-top: 10px;
+    font-weight: 600;
 }
 
 .btn-add-activity:hover {
-    border-color: var(--primary);
-    color: var(--primary)
+    background: var(--primary-glow);
+    border-style: solid;
+    color: var(--primary-dark);
+}
+
+.btn-add {
+    width: 100%;
+    border-radius: 12px;
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    padding: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: 0.3s;
+    font-family: var(--font);
+}
+
+.btn-add:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--primary-glow);
 }
 
 .modal-footer {
@@ -1341,12 +1368,12 @@ h3 i,
 }
 
 .btn-save {
-    background: var(--primary);
+    background: var(--primary-gradient);
     color: #fff;
     border: none;
     padding: 10px 24px;
     border-radius: 8px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     font-family: var(--font);
     display: flex;
@@ -1356,8 +1383,28 @@ h3 i,
 }
 
 .btn-save:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px var(--primary-glow)
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--primary-glow)
+}
+
+.btn-vibrant {
+    background: var(--primary-gradient);
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    transition: .2s;
+}
+
+.btn-vibrant:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--primary-glow)
 }
 
 /* Delete project button */

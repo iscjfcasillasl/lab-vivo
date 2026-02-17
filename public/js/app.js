@@ -349,7 +349,7 @@ function renderDetailView(proj) {
         </div>
         <div style="display:flex; gap:8px; align-items:center; margin-left:auto">
             ${editBtns}
-            <button class="btn-edit-project" onclick="openAddActivityModal(${proj.id})" style="background:var(--success); color:#fff; border:none"><i class="ri-add-line"></i> Actividad</button>
+            <button class="btn-vibrant" onclick="openAddActivityModal(${proj.id})"><i class="ri-add-line"></i> Actividad</button>
             <div class="detail-progress" style="margin-left:8px">
                 <div class="big-pct" style="color:${proj.color}">${pct}%</div>
                 <div class="label">${Math.round(completedDays(proj))} / ${totalDays(proj)} d</div>

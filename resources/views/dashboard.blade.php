@@ -40,7 +40,7 @@
             </nav>
 
             <div class="sidebar-footer">
-                <button class="btn-add" onclick="openModal()" style="width:100%; border-radius:12px; background:var(--primary-gradient); color:white; border:none; padding:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px">
+                <button class="btn-add" onclick="openModal()">
                     <i class="ri-add-circle-line"></i> Nuevo Proyecto
                 </button>
             </div>
