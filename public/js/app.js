@@ -212,6 +212,7 @@ async function loadUsers() {
                         </div>
                     </td>
                     <td>${user.email}</td>
+                    <td style="font-size:0.8rem;opacity:0.7">${new Date(user.created_at).toLocaleDateString('es-MX')}</td>
                     <td><span class="${statusClass}">${statusText}</span></td>
                     <td><span style="text-transform:uppercase;font-size:0.7rem;font-weight:700;opacity:0.6">${user.role}</span></td>
                     <td>
@@ -904,9 +905,56 @@ function setIcon(id, name, el) {
     document.getElementById('icon-dropdown').classList.remove('open');
 }
 
+// Profile Dropdown Toggle
+function toggleProfileDropdown(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('profile-dropdown').classList.toggle('open');
+}
+
+// Theme Management
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'system';
+    setTheme(savedTheme, false);
+}
+
+function setTheme(mode, save = true) {
+    const root = document.documentElement;
+    const themePills = document.querySelectorAll('.theme-pill');
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    // Reset pills
+    themePills.forEach(p => p.classList.remove('active'));
+
+    if (save) localStorage.setItem('theme', mode);
+
+    let activeMode = mode;
+    if (mode === 'system') {
+        activeMode = systemDark ? 'dark' : 'light';
+    }
+
+    root.setAttribute('data-theme', activeMode);
+
+    // Style active pill
+    const activePill = document.getElementById(`theme-${mode}`);
+    if (activePill) {
+        activePill.classList.add('active');
+    }
+}
+
+// Watch for system theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (localStorage.getItem('theme') === 'system') {
+        setTheme('system', false);
+    }
+});
+
 // Close dropdowns on outside click
 document.addEventListener('click', () => {
     document.getElementById('icon-dropdown')?.classList.remove('open');
+    document.getElementById('profile-dropdown')?.classList.remove('open');
 });
 
-document.addEventListener('DOMContentLoaded', loadData);
+document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    loadData();
+});

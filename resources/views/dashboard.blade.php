@@ -8,8 +8,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}?v={{ time() }}">
 </head>
 <body>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'system';
+            let activeMode = savedTheme;
+            if (savedTheme === 'system') {
+                activeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', activeMode);
+        })();
+    </script>
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -27,27 +38,11 @@
                 </a>
                 @endif
             </nav>
+
             <div class="sidebar-footer">
-                <div class="user-info" style="display:flex; align-items:center; gap:8px; padding:8px 12px; margin-bottom:8px; background:rgba(255,255,255,0.05); border-radius:10px;">
-                    @if(Auth::user()->avatar)
-                        <img src="{{ Auth::user()->avatar }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover" alt="avatar">
-                    @else
-                        <i class="ri-user-line" style="font-size:1.2rem"></i>
-                    @endif
-                    <div style="flex:1;overflow:hidden">
-                        <div style="font-size:0.75rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ Auth::user()->name }}</div>
-                        <div style="font-size:0.6rem;opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ Auth::user()->email }}</div>
-                    </div>
-                    @if($isSuperAdmin)
-                        <span style="background:var(--primary);color:white;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:600">ADMIN</span>
-                    @endif
-                </div>
-                <button class="btn-add" onclick="openModal()" style="margin-bottom:.5rem; width:100%; border-radius:12px; background:var(--primary-gradient); color:white; border:none; padding:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px">
+                <button class="btn-add" onclick="openModal()" style="width:100%; border-radius:12px; background:var(--primary-gradient); color:white; border:none; padding:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px">
                     <i class="ri-add-circle-line"></i> Nuevo Proyecto
                 </button>
-                <a href="{{ route('logout') }}" class="btn-reset" style="text-decoration:none; text-align:center; display:block">
-                    <i class="ri-logout-box-line"></i> Cerrar Sesión
-                </a>
             </div>
         </aside>
 
@@ -57,22 +52,68 @@
                 <div class="breadcrumbs">
                     <span>Proyectos</span> <i class="ri-arrow-right-s-line"></i> <span class="current" id="view-title">Vista Global</span>
                 </div>
-                <div class="kpi-bar">
-                    <div class="kpi-pill">
-                        <i class="ri-checkbox-circle-line"></i> <span id="kpi-progress">0%</span> completado
+
+                <div style="display: flex; align-items: center; gap: 2rem;">
+                    <div class="kpi-bar">
+                        <div class="kpi-pill" title="Progreso Global">
+                            <i class="ri-checkbox-circle-line"></i> <span id="kpi-progress">0%</span>
+                        </div>
+                        <div class="kpi-pill" title="Tareas Pendientes">
+                            <i class="ri-list-check"></i> <span id="kpi-pending-tasks">0</span>
+                        </div>
+                        <div class="kpi-pill" title="Total Proyectos">
+                            <i class="ri-folder-info-line"></i> <span id="kpi-total-projects">0</span>
+                        </div>
+                        <div class="kpi-pill" title="Días Totales de Trabajo">
+                            <i class="ri-time-line"></i> <span id="kpi-total-days">0</span>
+                        </div>
                     </div>
-                    <div class="kpi-pill">
-                        <i class="ri-list-check"></i> <span id="kpi-pending-tasks">0</span> pendientes
+
+                    <div class="profile-action" onclick="toggleProfileDropdown(event)">
+                        @if(Auth::user()->avatar)
+                            <img src="{{ Auth::user()->avatar }}" style="width:32px;height:32px;border-radius:10px;object-fit:cover" alt="avatar">
+                        @else
+                            <div style="width:32px;height:32px;border-radius:10px;background:var(--bg-dark);display:flex;align-items:center;justify-content:center">
+                                <i class="ri-user-line"></i>
+                            </div>
+                        @endif
+                        <div style="text-align: left; line-height: 1.2;">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">{{ Auth::user()->name }}</div>
+                            <div style="font-size: 0.65rem; color: var(--text-muted);">{{ $isSuperAdmin ? 'Administrador' : 'Usuario' }}</div>
+                        </div>
+                        <i class="ri-arrow-down-s-line" style="font-size: 1.1rem; color: var(--text-muted);"></i>
+
+                        <!-- Dropdown Menu -->
+                        <div class="profile-dropdown" id="profile-dropdown">
+                            <div class="profile-header">
+                                <div style="font-size: 0.85rem; font-weight: 700;">{{ Auth::user()->name }}</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">{{ Auth::user()->email }}</div>
+                                @if($isSuperAdmin)
+                                    <span style="background:var(--primary);color:white;font-size:0.6rem;padding:2px 8px;border-radius:20px;font-weight:700">SUPERADMIN</span>
+                                @endif
+                            </div>
+
+                            <div style="font-size: 0.65rem; font-weight: 800; color: var(--text-muted); padding: 5px 12px; text-transform: uppercase; letter-spacing: 1px;">Apariencia</div>
+                            <div class="theme-pill-selector">
+                                <button onclick="setTheme('light')" class="theme-pill" id="theme-light" title="Claro">
+                                    <i class="ri-sun-line"></i>
+                                </button>
+                                <button onclick="setTheme('dark')" class="theme-pill" id="theme-dark" title="Oscuro">
+                                    <i class="ri-moon-line"></i>
+                                </button>
+                                <button onclick="setTheme('system')" class="theme-pill" id="theme-system" title="Sistema">
+                                    <i class="ri-computer-line"></i>
+                                </button>
+                            </div>
+
+                            <div style="height: 1px; background: var(--border); margin: 8px 0;"></div>
+
+                            <a href="{{ route('logout') }}" class="profile-item" style="color: #ef4444;">
+                                <span>Cerrar Sesión</span>
+                                <i class="ri-logout-box-r-line"></i>
+                            </a>
+                        </div>
                     </div>
-                    <div class="kpi-pill">
-                        <i class="ri-folder-info-line"></i> <span id="kpi-total-projects">0</span> proyectos
-                    </div>
-                    <div class="kpi-pill">
-                        <i class="ri-time-line"></i> <span id="kpi-total-days">0</span> días totales
-                    </div>
-                    <button class="btn-add-sm" onclick="openModal()" title="Nuevo Proyecto" style="background:var(--primary); color:white; border:none; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s">
-                        <i class="ri-add-line"></i>
-                    </button>
                 </div>
             </header>
 
@@ -121,6 +162,7 @@
                                 <tr>
                                     <th style="text-align:left">Usuario</th>
                                     <th>Email</th>
+                                    <th>Registro</th>
                                     <th>Estado</th>
                                     <th>Rol</th>
                                     <th>Acciones</th>
