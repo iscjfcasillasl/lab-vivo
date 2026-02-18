@@ -30,10 +30,16 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::put('/api/projects/{id}', [DashboardController::class, 'updateProject']);
     Route::delete('/api/projects/{id}', [DashboardController::class, 'deleteProject']);
 
+    // Phases
+    Route::post('/api/projects/{projectId}/phases', [DashboardController::class, 'createPhase']);
+    Route::put('/api/phases/{id}', [DashboardController::class, 'updatePhase']);
+    Route::delete('/api/phases/{id}', [DashboardController::class, 'deletePhase']);
+
     // Activities
     Route::post('/api/projects/{projectId}/activities', [DashboardController::class, 'createActivity']);
     Route::put('/api/activities/{id}', [DashboardController::class, 'updateActivity']);
     Route::put('/api/activities/{id}/progress', [DashboardController::class, 'updateActivityProgress']);
+    Route::put('/api/activities/{id}/achievements', [DashboardController::class, 'recordProgress']);
     Route::delete('/api/activities/{id}', [DashboardController::class, 'deleteActivity']);
 
     // Activity Logs
@@ -49,4 +55,6 @@ Route::middleware(['auth', 'approved'])->group(function () {
     // Export Routes
     Route::get('/api/projects/export/all', [ExportController::class, 'exportAllProjects'])->name('projects.export.all');
     Route::get('/api/projects/{id}/export', [ExportController::class, 'exportProject'])->name('projects.export.single');
+    Route::get('/projects/{id}/print', [ExportController::class, 'printProject'])->name('projects.print');
+    Route::get('/print-all', [ExportController::class, 'printAllProjects'])->name('projects.print_all');
 });

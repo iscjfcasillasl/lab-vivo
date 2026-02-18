@@ -1673,3 +1673,196 @@ h3 i,
     padding-bottom: 4px;
     border-bottom: 1px solid var(--border);
 }
+
+/* ─── Phase Containers ─── */
+.phase-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 1.2rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border-left: 4px solid var(--primary);
+}
+
+.phase-container:hover {
+    border-color: var(--primary);
+    border-left-color: var(--primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.phase-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    background: rgba(0, 255, 157, 0.02);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.phase-header:hover {
+    background: rgba(0, 255, 157, 0.05);
+}
+
+.phase-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.phase-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    background: rgba(0, 255, 157, 0.1);
+    color: var(--primary);
+}
+
+.phase-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.phase-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.phase-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: rgba(0, 204, 255, 0.1);
+    color: var(--secondary);
+    white-space: nowrap;
+}
+
+.phase-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.phase-actions button {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font);
+}
+
+.phase-actions button:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.phase-actions button.danger:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+}
+
+.phase-body {
+    padding: 1rem 1.5rem 1.5rem;
+}
+
+.phase-body .gantt-wrapper {
+    padding-bottom: 0.5rem;
+}
+
+/* Per-phase export dropdown */
+.phase-export-wrap {
+    position: relative;
+}
+
+/* Achievement modal specific */
+#achievement-modal-overlay .modal {
+    border-top: 3px solid var(--success);
+}
+
+/* Phase creation btn in detail header */
+.btn-phase {
+    background: rgba(0, 204, 255, 0.1);
+    color: var(--secondary);
+    border: 1px solid rgba(0, 204, 255, 0.2);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: var(--font);
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-phase:hover {
+    background: var(--secondary);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 204, 255, 0.3);
+}
+
+/* Btn to register achievement on activity row */
+.btn-achievement {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: var(--success);
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: var(--font);
+    transition: 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.btn-achievement:hover {
+    background: var(--success);
+    color: #fff;
+}
+
+/* Achievements display */
+.activity-achievements {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    background: rgba(16, 185, 129, 0.05);
+    border-radius: 6px;
+    border-left: 2px solid var(--success);
+    margin-top: 4px;
+    max-width: 400px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}. f o r m - r o w  
+   d i s p l a y :   f l e x ;   g a p :   1 r e m ;   f l e x - w r a p :   w r a p ;   m a r g i n - b o t t o m :   1 r e m ;    
+ . f o r m - r o w  
+ . f o r m - g r o u p  
+   f l e x :   1 ;   m i n - w i d t h :   1 4 0 p x ;   m a r g i n - b o t t o m :   0   ! i m p o r t a n t ;    
+ 

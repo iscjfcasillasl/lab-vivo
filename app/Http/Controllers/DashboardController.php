@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\Phase;
 use App\Models\Activity;
 use App\Models\ActivityLog;
 use App\Models\User;
@@ -22,16 +23,21 @@ class DashboardController extends Controller
     }
 
     /**
-     * GET /api/projects — Return all projects with activities, logs, and creator info
+     * GET /api/projects — Return all projects with phases, activities, logs, and creator info
      */
     public function getProjects()
     {
         $projects = Project::with([
-            'activities.creator:id,name,email,avatar',
-            'activities.logs' => function ($q) {
+            'phases.activities.creator:id,name,email,avatar',
+            'phases.activities.logs' => function ($q) {
                 $q->with('user:id,name,email,avatar')->latest()->take(50);
             }
         ])->get();
+
+        // Append a flat 'activities' array on each project for backward compatibility
+        $projects->each(function ($project) {
+            $project->setAttribute('activities', $project->phases->flatMap->activities->values());
+        });
 
         return response()->json($projects);
     }
@@ -56,7 +62,17 @@ class DashboardController extends Controller
             'key' => 'proj_' . time(),
         ]);
 
-        return response()->json(['success' => true, 'project' => $project->load('activities')]);
+        // Create a default phase for the new project
+        $project->phases()->create([
+            'name' => 'Fase Inicial',
+            'description' => null,
+            'order' => 0,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'project' => $project->load('phases.activities'),
+        ]);
     }
 
     /**
@@ -100,6 +116,88 @@ class DashboardController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /* ═══════════════════════════════════════════
+       PHASE ENDPOINTS
+       ═══════════════════════════════════════════ */
+
+    /**
+     * POST /api/projects/{projectId}/phases — Create a new phase
+     */
+    public function createPhase(Request $request, $projectId)
+    {
+        $project = Project::findOrFail($projectId);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        $maxOrder = $project->phases()->max('order') ?? -1;
+
+        $phase = $project->phases()->create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'order' => $maxOrder + 1,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'phase' => $phase->load('activities'),
+        ]);
+    }
+
+    /**
+     * PUT /api/phases/{id} — Update phase
+     */
+    public function updatePhase(Request $request, $id)
+    {
+        $phase = Phase::findOrFail($id);
+        $user = Auth::user();
+
+        $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'order' => 'sometimes|integer|min:0',
+        ]);
+
+        $phase->update($request->only(['name', 'description', 'order']));
+
+        return response()->json(['success' => true, 'phase' => $phase]);
+    }
+
+    /**
+     * DELETE /api/phases/{id} — Delete phase (moves activities to first remaining phase)
+     */
+    public function deletePhase($id)
+    {
+        $user = Auth::user();
+        if (!$user->isSuperAdmin()) {
+            return response()->json(['error' => 'Solo el administrador puede eliminar fases.'], 403);
+        }
+
+        $phase = Phase::findOrFail($id);
+        $project = $phase->project;
+
+        // Prevent deleting the last phase
+        if ($project->phases()->count() <= 1) {
+            return response()->json(['error' => 'No se puede eliminar la única fase del proyecto.'], 400);
+        }
+
+        // Move orphan activities to the first available phase
+        $fallbackPhase = $project->phases()->where('id', '!=', $phase->id)->orderBy('order')->first();
+        if ($fallbackPhase) {
+            $phase->activities()->update(['phase_id' => $fallbackPhase->id]);
+        }
+
+        $phase->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    /* ═══════════════════════════════════════════
+       ACTIVITY ENDPOINTS
+       ═══════════════════════════════════════════ */
+
     /**
      * POST /api/projects/{projectId}/activities — Add activity (any authenticated user)
      */
@@ -110,16 +208,35 @@ class DashboardController extends Controller
 
         $request->validate([
             'text' => 'required|string|max:255',
+            'description' => 'nullable|string|max:2000',
             'days' => 'required|integer|min:1',
             'priority' => 'required|in:critical,high,medium,low',
             'start_time' => 'nullable|string',
             'end_time' => 'nullable|string',
             'progress' => 'integer|min:0|max:100',
-            'justification' => 'required|string|min:5|max:1000',
+            'phase_id' => 'nullable|integer|exists:phases,id',
+            'justification' => 'nullable|string|max:1000',
         ]);
 
-        $activity = $project->activities()->create([
+        // If no phase_id provided, use the first phase of the project
+        $phaseId = $request->phase_id;
+        if (!$phaseId) {
+            $defaultPhase = $project->phases()->orderBy('order')->first();
+            if (!$defaultPhase) {
+                // Safety net: create one if somehow none exists
+                $defaultPhase = $project->phases()->create([
+                    'name' => 'Fase Inicial',
+                    'order' => 0,
+                ]);
+            }
+            $phaseId = $defaultPhase->id;
+        }
+
+        $activity = Activity::create([
+            'phase_id' => $phaseId,
+            'project_id' => $project->id,
             'text' => $request->text,
+            'description' => $request->description,
             'days' => $request->days,
             'priority' => $request->priority,
             'start_time' => $request->start_time,
@@ -129,14 +246,14 @@ class DashboardController extends Controller
             'created_by' => $user->id,
         ]);
 
-        // Log the creation
+        // Log the creation (justification optional)
         ActivityLog::create([
             'activity_id' => $activity->id,
             'user_id' => $user->id,
             'action' => 'created',
             'old_progress' => null,
             'new_progress' => $request->progress ?? 0,
-            'justification' => $request->justification,
+            'justification' => $request->justification ?: 'Actividad creada',
         ]);
 
         return response()->json([
@@ -146,8 +263,9 @@ class DashboardController extends Controller
     }
 
     /**
-     * PUT /api/activities/{id}/progress — Update progress with MANDATORY justification
+     * PUT /api/activities/{id}/progress — Update progress
      * Users can ONLY increase progress, never decrease what others set
+     * Justification is now OPTIONAL
      */
     public function updateActivityProgress(Request $request, $id)
     {
@@ -156,16 +274,14 @@ class DashboardController extends Controller
 
         $request->validate([
             'progress' => 'required|integer|min:0|max:100',
-            'justification' => 'required|string|min:5|max:1000',
+            'justification' => 'nullable|string|max:1000',
         ]);
 
         $newProgress = (int) $request->progress;
         $oldProgress = (int) $activity->progress;
 
         // Rule: Users cannot decrease progress set by others
-        // Only the superadmin or the user who last set the progress can decrease it
         if ($newProgress < $oldProgress && !$user->isSuperAdmin()) {
-            // Check who set the current progress
             $lastProgressLog = $activity->logs()
                 ->where('action', 'progress_update')
                 ->latest()
@@ -189,7 +305,64 @@ class DashboardController extends Controller
             'action' => 'progress_update',
             'old_progress' => $oldProgress,
             'new_progress' => $newProgress,
-            'justification' => $request->justification,
+            'justification' => $request->justification ?: null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'activity' => $activity->load(['creator:id,name,email,avatar', 'logs.user:id,name,email,avatar']),
+        ]);
+    }
+
+    /**
+     * PUT /api/activities/{id}/achievements — Record achievements/progress notes
+     * Justification is OPTIONAL
+     */
+    public function recordProgress(Request $request, $id)
+    {
+        $activity = Activity::findOrFail($id);
+        $user = Auth::user();
+
+        $request->validate([
+            'achievements' => 'nullable|string|max:5000',
+            'progress' => 'sometimes|integer|min:0|max:100',
+            'justification' => 'nullable|string|max:1000',
+        ]);
+
+        $oldProgress = (int) $activity->progress;
+        $updateData = ['achievements' => $request->achievements];
+
+        // Optionally update progress too
+        if ($request->has('progress')) {
+            $newProgress = (int) $request->progress;
+
+            // Enforce increase-only rule for non-admins
+            if ($newProgress < $oldProgress && !$user->isSuperAdmin()) {
+                $lastProgressLog = $activity->logs()
+                    ->where('action', 'progress_update')
+                    ->latest()
+                    ->first();
+
+                if ($lastProgressLog && $lastProgressLog->user_id !== $user->id) {
+                    return response()->json([
+                        'error' => 'No puedes reducir el avance registrado por otro usuario.'
+                    ], 403);
+                }
+            }
+
+            $updateData['progress'] = $newProgress;
+            $updateData['done'] = $newProgress >= 100;
+        }
+
+        $activity->update($updateData);
+
+        ActivityLog::create([
+            'activity_id' => $activity->id,
+            'user_id' => $user->id,
+            'action' => 'achievement_recorded',
+            'old_progress' => $oldProgress,
+            'new_progress' => $request->progress ?? $oldProgress,
+            'justification' => $request->justification ?: $request->achievements ?: null,
         ]);
 
         return response()->json([
@@ -201,6 +374,7 @@ class DashboardController extends Controller
     /**
      * PUT /api/activities/{id} — Update activity details (time, days, priority)
      * Only the creator or superadmin
+     * Justification is now OPTIONAL for general edits
      */
     public function updateActivity(Request $request, $id)
     {
@@ -216,14 +390,16 @@ class DashboardController extends Controller
 
         $request->validate([
             'text' => 'sometimes|string|max:255',
+            'description' => 'nullable|string|max:2000',
             'days' => 'sometimes|integer|min:1',
             'priority' => 'sometimes|in:critical,high,medium,low',
             'start_time' => 'nullable|string',
             'end_time' => 'nullable|string',
-            'justification' => 'required|string|min:5|max:1000',
+            'phase_id' => 'nullable|integer|exists:phases,id',
+            'justification' => 'nullable|string|max:1000',
         ]);
 
-        $activity->update($request->only(['text', 'days', 'priority', 'start_time', 'end_time']));
+        $activity->update($request->only(['text', 'description', 'days', 'priority', 'start_time', 'end_time', 'phase_id']));
 
         ActivityLog::create([
             'activity_id' => $activity->id,
@@ -231,7 +407,7 @@ class DashboardController extends Controller
             'action' => 'edited',
             'old_progress' => $activity->progress,
             'new_progress' => $activity->progress,
-            'justification' => $request->justification,
+            'justification' => $request->justification ?: null,
         ]);
 
         return response()->json([
@@ -299,7 +475,7 @@ class DashboardController extends Controller
         ]);
 
         $targetUser = User::findOrFail($id);
-        
+
         // Don't allow changing self status
         if ($targetUser->id === $user->id) {
             return response()->json(['error' => 'No puedes cambiar tu propio estado'], 400);
@@ -342,9 +518,17 @@ class DashboardController extends Controller
                     'key' => $pData['key'] ?? null,
                 ]);
 
+                // Create default phase
+                $defaultPhase = $project->phases()->create([
+                    'name' => 'Fase Inicial',
+                    'order' => 0,
+                ]);
+
                 if (isset($pData['activities']) && is_array($pData['activities'])) {
                     foreach ($pData['activities'] as $aData) {
-                        $project->activities()->create([
+                        Activity::create([
+                            'phase_id' => $defaultPhase->id,
+                            'project_id' => $project->id,
                             'text' => $aData['text'] ?? ($aData['name'] ?? 'Actividad'),
                             'days' => $aData['days'] ?? 1,
                             'done' => ($aData['progress'] ?? 0) >= 100,

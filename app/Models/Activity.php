@@ -10,20 +10,28 @@ class Activity extends Model
     use HasFactory;
 
     protected $fillable = [
+        'phase_id',
         'project_id',
         'text',
+        'description',
         'days',
         'done',
         'start_time',
         'end_time',
         'priority',
         'progress',
+        'achievements',
         'created_by',
     ];
 
     protected $casts = [
         'done' => 'boolean',
     ];
+
+    public function phase()
+    {
+        return $this->belongsTo(Phase::class);
+    }
 
     public function project()
     {

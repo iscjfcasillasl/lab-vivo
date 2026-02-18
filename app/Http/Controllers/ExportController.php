@@ -163,4 +163,29 @@ class ExportController extends Controller
 
         return Response::stream($callback, 200, $headers);
     }
+    /**
+     * Render a print-friendly view for PDF generation via browser
+     */
+    public function printProject($id)
+    {
+        $project = Project::with(['phases' => function($q) {
+            $q->orderBy('order');
+            $q->with(['activities']); 
+        }])->findOrFail($id);
+
+        return view('print_project', compact('project'));
+    }
+
+    /**
+     * Render a print-friendly view for ALL projects
+     */
+    public function printAllProjects()
+    {
+        $projects = Project::with(['phases' => function($q) {
+            $q->orderBy('order');
+            $q->with(['activities']);
+        }])->get();
+
+        return view('print_all_projects', compact('projects'));
+    }
 }

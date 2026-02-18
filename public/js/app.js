@@ -374,7 +374,7 @@ function renderGlobalGantt() {
 }
 
 /* ═══════════════════════════════════════════
-   Detail View
+   Detail View (Phase-Grouped)
    ═══════════════════════════════════════════ */
 function renderDetailView(proj) {
     const pct = projectProgress(proj);
@@ -396,8 +396,9 @@ function renderDetailView(proj) {
             <p>${proj.description || proj.desc || ''}</p>
         </div>
         <div style="display:flex; gap:8px; align-items:center; margin-left:auto">
+            <button class="btn-edit-project" onclick="printProject(${proj.id})" title="Imprimir PDF"><i class="ri-printer-line"></i> PDF</button>
             ${editBtns}
-            <button class="btn-vibrant" onclick="openAddActivityModal(${proj.id})"><i class="ri-add-line"></i> Actividad</button>
+            <button class="btn-phase" onclick="openPhaseModal(${proj.id})"><i class="ri-stack-line"></i> Fase</button>
             <div class="detail-progress" style="margin-left:8px">
                 <div class="big-pct" style="color:${proj.color}">${pct}%</div>
                 <div class="label">${Math.round(completedDays(proj))} / ${totalDays(proj)} d</div>
@@ -406,11 +407,67 @@ function renderDetailView(proj) {
     `;
     document.getElementById('detail-header').classList.add('fade-in');
 
-    const sortedActivities = [...(proj.activities || [])].sort((a, b) =>
-        (PRIORITY_ORDER[a.priority || 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority || 'medium'] ?? 2)
-    );
+    // Render phases with grouped activities
+    const phasesContainer = document.getElementById('phases-container');
+    const phases = proj.phases || [];
 
-    const maxDays = Math.max(...sortedActivities.map(a => parseInt(a.days) || 1), 1);
+    if (phases.length === 0) {
+        // Fallback: render all activities flat (backward compat)
+        phasesContainer.innerHTML = renderFlatActivitiesSection(proj, proj.activities || []);
+        return;
+    }
+
+    let phasesHTML = '';
+    phases.forEach((phase, phaseIdx) => {
+        const phaseActivities = (phase.activities || []).sort((a, b) =>
+            (PRIORITY_ORDER[a.priority || 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority || 'medium'] ?? 2)
+        );
+
+        const actCount = phaseActivities.length;
+        const doneCount = phaseActivities.filter(a => (a.progress || 0) >= 100).length;
+        const phaseProgress = actCount > 0 ? Math.round(phaseActivities.reduce((s, a) => s + (a.progress || 0), 0) / actCount) : 0;
+
+        let deleteBtn = '';
+        if (CURRENT_USER.isSuperAdmin && phases.length > 1) {
+            deleteBtn = `<button class="danger" onclick="event.stopPropagation(); deletePhase(${phase.id})" title="Eliminar fase"><i class="ri-delete-bin-line"></i></button>`;
+        }
+
+        const activitiesTable = renderPhaseActivitiesTable(proj, phaseActivities);
+
+        phasesHTML += `
+            <div class="phase-container fade-in">
+                <div class="phase-header">
+                    <div class="phase-header-left">
+                        <div class="phase-icon"><i class="ri-stack-line"></i></div>
+                        <div>
+                            <div class="phase-title">${phase.name}</div>
+                            ${phase.description ? `<div class="phase-subtitle">${phase.description}</div>` : ''}
+                        </div>
+                        <span class="phase-badge">${doneCount}/${actCount} · ${phaseProgress}%</span>
+                    </div>
+                    <div class="phase-actions" onclick="event.stopPropagation()">
+                        <button onclick="openPhaseModal(${proj.id}, ${phase.id})" title="Editar fase"><i class="ri-edit-line"></i> Editar</button>
+                        <button onclick="openAddActivityToPhase(${proj.id}, ${phase.id})" title="Agregar actividad a esta fase"><i class="ri-add-line"></i> Actividad</button>
+                        ${deleteBtn}
+                    </div>
+                </div>
+                <div class="phase-body">
+                    ${actCount > 0 ? activitiesTable : '<p style="text-align:center;opacity:0.4;padding:1rem;font-size:0.85rem">Sin actividades en esta fase</p>'}
+                </div>
+            </div>
+        `;
+    });
+
+    phasesContainer.innerHTML = phasesHTML;
+}
+
+/**
+ * Renders the Gantt table for a set of activities within a phase
+ */
+function renderPhaseActivitiesTable(proj, phaseActivities) {
+    if (phaseActivities.length === 0) return '';
+
+    const maxDays = Math.max(...phaseActivities.map(a => parseInt(a.days) || 1), 1);
     const axisDays = maxDays + 2;
 
     let headerCells = '<th>Actividad</th>';
@@ -419,12 +476,18 @@ function renderDetailView(proj) {
     }
 
     let rows = '';
-    sortedActivities.forEach((act) => {
-        const barColor = act.progress >= 100 ? 'var(--success)' : (act.progress > 0 ? 'var(--secondary)' : proj.color);
+    phaseActivities.forEach((act) => {
+        // Priority-based colors
+        const priorityColors = {
+            'critical': 'var(--danger)', // Red
+            'high': '#f59e0b',           // Amber/Orange (Warning usually yellow, amber is better for visibility)
+            'medium': 'var(--primary)',  // Theme color or Blue
+            'low': '#9ca3af'             // Gray
+        };
+        const barColor = act.progress >= 100 ? 'var(--success)' : (priorityColors[act.priority] || proj.color);
         const sched = formatSchedule(act);
         const schedLabel = sched ? ` · ${sched}` : '';
         const prio = act.priority || 'medium';
-        const creatorName = act.creator ? act.creator.name : 'Sistema';
         const isOwner = act.created_by === CURRENT_USER.id;
 
         let ownerBadge = '';
@@ -432,14 +495,25 @@ function renderDetailView(proj) {
             ownerBadge = `<span style="font-size:0.55rem;background:var(--primary);color:white;padding:1px 5px;border-radius:3px;margin-left:4px">MÍA</span>`;
         }
 
+        let achievementSnippet = '';
+        if (act.achievements) {
+            achievementSnippet = `<div class="activity-achievements" title="${act.achievements.replace(/"/g, '&quot;')}"><i class="ri-trophy-line"></i> ${act.achievements.substring(0, 60)}${act.achievements.length > 60 ? '...' : ''}</div>`;
+        }
+
         let cells = `<td>
             <div class="gantt-label-cell" style="cursor:pointer" onclick="openActivityModal(${proj.id}, ${act.id})">
                 <span class="dot" style="background:${barColor}"></span>
-                <span style="${act.progress >= 100 ? 'text-decoration:line-through;opacity:.5' : ''}">
-                    ${act.text}${schedLabel ? `<span style="color:var(--secondary);font-size:.75rem">${schedLabel}</span>` : ''} 
-                    <span class="priority-badge ${prio}" style="font-size:0.6rem">${PRIORITY_LABELS[prio]}</span>
-                    ${ownerBadge}
-                </span>
+                <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+                        <span style="${act.progress >= 100 ? 'text-decoration:line-through;opacity:.5' : ''}">
+                            ${act.text}${schedLabel ? `<span style="color:var(--secondary);font-size:.75rem">${schedLabel}</span>` : ''}
+                        </span>
+                        <span class="priority-badge ${prio}" style="font-size:0.6rem">${PRIORITY_LABELS[prio]}</span>
+                        ${ownerBadge}
+                        <button class="btn-achievement" onclick="event.stopPropagation(); openAchievementModal(${proj.id}, ${act.id})"><i class="ri-trophy-line"></i> Avance</button>
+                    </div>
+                    ${achievementSnippet}
+                </div>
             </div>
         </td>`;
 
@@ -459,12 +533,29 @@ function renderDetailView(proj) {
         rows += `<tr onclick="openActivityModal(${proj.id}, ${act.id})">${cells}</tr>`;
     });
 
-    document.getElementById('gantt-detail').innerHTML = `
-        <table class="gantt-table fade-in">
-            <thead><tr>${headerCells}</tr></thead>
-            <tbody>${rows}</tbody>
-        </table>
+    return `
+        <div class="gantt-wrapper">
+            <table class="gantt-table fade-in">
+                <thead><tr>${headerCells}</tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
     `;
+}
+
+/**
+ * Fallback: render activities flat without phase grouping
+ */
+function renderFlatActivitiesSection(proj, activities) {
+    return `<section class="card gantt-section">
+        <div class="section-header">
+            <div>
+                <h2><i class="ri-list-check-2"></i> Actividades del Proyecto</h2>
+                <p class="subtitle">Haz clic en una actividad para editar su progreso</p>
+            </div>
+        </div>
+        ${renderPhaseActivitiesTable(proj, activities)}
+    </section>`;
 }
 
 /* ═══════════════════════════════════════════
@@ -491,7 +582,8 @@ function renderProjectLogs(proj) {
         'created': '🆕 Creó actividad',
         'progress_update': '📊 Actualizó avance',
         'edited': '✏️ Editó detalles',
-        'deleted': '🗑️ Eliminó actividad'
+        'deleted': '🗑️ Eliminó actividad',
+        'achievement_recorded': '🏆 Registró logro'
     };
 
     container.innerHTML = allLogs.slice(0, 50).map(log => {
@@ -535,7 +627,20 @@ let activityModalState = { projectId: null, activityId: null, activity: null };
 function openActivityModal(projectId, activityId) {
     const proj = projects.find(p => p.id == projectId);
     if (!proj) return;
-    const act = proj.activities.find(a => a.id == activityId);
+
+    // Find activity in flat list OR nested phases
+    let act = null;
+    if (proj.activities) act = proj.activities.find(a => a.id == activityId);
+
+    if (!act && proj.phases) {
+        for (const phase of proj.phases) {
+            if (phase.activities) {
+                act = phase.activities.find(a => a.id == activityId);
+                if (act) break;
+            }
+        }
+    }
+
     if (!act) return;
 
     activityModalState = { projectId, activityId, activity: act };
@@ -553,6 +658,7 @@ function openActivityModal(projectId, activityId) {
     document.getElementById('act-edit-status').value = getStatus(act.progress);
     document.getElementById('act-edit-priority').value = act.priority || 'medium';
     document.getElementById('act-edit-days').value = act.days || 1;
+    document.getElementById('act-edit-desc').value = act.description || '';
     document.getElementById('act-edit-justification').value = '';
 
     // Show ownership info
@@ -610,12 +716,6 @@ async function saveActivityEdit() {
     if (!activity) return;
 
     const justification = document.getElementById('act-edit-justification').value.trim();
-    if (!justification || justification.length < 5) {
-        alert('⚠️ Debes proporcionar una justificación de al menos 5 caracteres.');
-        document.getElementById('act-edit-justification').focus();
-        return;
-    }
-
     const newProgress = parseInt(document.getElementById('act-edit-progress').value) || 0;
     const oldProgress = activity.progress || 0;
 
@@ -624,7 +724,7 @@ async function saveActivityEdit() {
         if (newProgress !== oldProgress) {
             await apiCall(`${API_BASE}/activities/${activityId}/progress`, 'PUT', {
                 progress: newProgress,
-                justification: justification,
+                justification: justification || null,
             });
         }
 
@@ -632,14 +732,14 @@ async function saveActivityEdit() {
         if (canEditActivity(activity)) {
             await apiCall(`${API_BASE}/activities/${activityId}`, 'PUT', {
                 text: document.getElementById('act-edit-name').value.trim(),
+                description: document.getElementById('act-edit-desc').value.trim(),
                 days: parseInt(document.getElementById('act-edit-days').value) || 1,
                 start_time: document.getElementById('act-edit-start').value || null,
                 end_time: document.getElementById('act-edit-end').value || null,
                 priority: document.getElementById('act-edit-priority').value,
-                justification: justification,
+                justification: justification || null,
             });
         } else if (newProgress === oldProgress) {
-            // If nothing changed, at least tell user
             alert('No tienes permisos para editar los detalles de esta actividad.');
             return;
         }
@@ -728,7 +828,7 @@ function openAddActivityModal(projectId) {
 // Override saveActivityEdit to handle both create and edit
 const originalSaveActivityEdit = saveActivityEdit;
 saveActivityEdit = async function () {
-    const { projectId, activityId } = activityModalState;
+    const { projectId, activityId, phaseId } = activityModalState;
 
     // If no activityId, it's a CREATE
     if (!activityId) {
@@ -740,25 +840,22 @@ saveActivityEdit = async function () {
             document.getElementById('act-edit-name').focus();
             return;
         }
-        if (!justification || justification.length < 5) {
-            alert('⚠️ Debes proporcionar una justificación de al menos 5 caracteres.');
-            document.getElementById('act-edit-justification').focus();
-            return;
-        }
 
         try {
-            await apiCall(`${API_PROJECTS_URL}/${projectId}/activities`, 'POST', {
+            const body = {
                 text: name,
                 days: parseInt(document.getElementById('act-edit-days').value) || 1,
                 priority: document.getElementById('act-edit-priority').value,
                 start_time: document.getElementById('act-edit-start').value || null,
                 end_time: document.getElementById('act-edit-end').value || null,
                 progress: parseInt(document.getElementById('act-edit-progress').value) || 0,
-                justification: justification,
-            });
+                justification: justification || 'Creación de actividad',
+            };
+            if (phaseId) body.phase_id = phaseId;
+
+            await apiCall(`${API_PROJECTS_URL}/${projectId}/activities`, 'POST', body);
 
             closeActivityModal();
-            // Reset name field to readonly for next edit opens
             document.getElementById('act-edit-name').readOnly = true;
             document.getElementById('act-edit-name').style.opacity = '0.7';
             await loadData();
@@ -771,6 +868,150 @@ saveActivityEdit = async function () {
     // Otherwise it's an EDIT — use original logic
     return originalSaveActivityEdit();
 };
+
+/* ═══════════════════════════════════════════
+   Phase Modal Logic
+   ═══════════════════════════════════════════ */
+let phaseModalState = { projectId: null, phaseId: null };
+
+function openPhaseModal(projectId, phaseId = null) {
+    phaseModalState = { projectId, phaseId };
+
+    let phaseName = '';
+    let phaseDesc = '';
+
+    // If editing, look up the phase data from the loaded projects
+    if (phaseId) {
+        const proj = projects.find(p => p.id == projectId);
+        if (proj && proj.phases) {
+            const phase = proj.phases.find(ph => ph.id == phaseId);
+            if (phase) {
+                phaseName = phase.name || '';
+                phaseDesc = phase.description || '';
+            }
+        }
+    }
+
+    document.getElementById('phase-name').value = phaseName;
+    document.getElementById('phase-desc').value = phaseDesc;
+    document.getElementById('phase-modal-title').textContent = phaseId ? 'Editar Fase' : 'Nueva Fase';
+    document.getElementById('phase-save-btn').innerHTML = phaseId
+        ? '<i class="ri-save-line"></i> Guardar Cambios'
+        : '<i class="ri-add-line"></i> Crear Fase';
+    document.getElementById('phase-modal-overlay').classList.add('open');
+}
+
+function closePhaseModal() {
+    document.getElementById('phase-modal-overlay').classList.remove('open');
+}
+
+async function savePhase() {
+    const name = document.getElementById('phase-name').value.trim();
+    if (!name) {
+        alert('⚠️ El nombre de la fase es obligatorio.');
+        document.getElementById('phase-name').focus();
+        return;
+    }
+
+    const { projectId, phaseId } = phaseModalState;
+    const body = {
+        name,
+        description: document.getElementById('phase-desc').value.trim() || null,
+    };
+
+    try {
+        if (phaseId) {
+            await apiCall(`${API_BASE}/phases/${phaseId}`, 'PUT', body);
+        } else {
+            await apiCall(`${API_PROJECTS_URL}/${projectId}/phases`, 'POST', body);
+        }
+        closePhaseModal();
+        await loadData();
+    } catch (error) {
+        alert('❌ ' + error.message);
+    }
+}
+
+async function deletePhase(phaseId) {
+    if (!confirm('¿Eliminar esta fase? Las actividades se moverán a la primera fase disponible.')) return;
+    try {
+        await apiCall(`${API_BASE}/phases/${phaseId}`, 'DELETE');
+        await loadData();
+    } catch (error) {
+        alert('❌ ' + error.message);
+    }
+}
+
+/**
+ * Open the activity create modal pre-set to a specific phase
+ */
+function openAddActivityToPhase(projectId, phaseId) {
+    openAddActivityModal(projectId);
+    activityModalState.phaseId = phaseId;
+}
+
+/* ═══════════════════════════════════════════
+   Achievement Modal Logic
+   ═══════════════════════════════════════════ */
+let achievementModalState = { projectId: null, activityId: null, activity: null };
+
+function openAchievementModal(projectId, activityId) {
+    const proj = projects.find(p => p.id == projectId);
+    if (!proj) return;
+
+    let act = null;
+    if (proj.phases) {
+        for (const phase of proj.phases) {
+            act = (phase.activities || []).find(a => a.id == activityId);
+            if (act) break;
+        }
+    }
+    if (!act && proj.activities) {
+        act = proj.activities.find(a => a.id == activityId);
+    }
+    if (!act) return;
+
+    achievementModalState = { projectId, activityId, activity: act };
+
+    document.getElementById('ach-activity-info').innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px">
+            <i class="ri-task-line" style="font-size:1.2rem;color:var(--primary)"></i>
+            <div>
+                <div style="font-weight:600;font-size:0.9rem">${act.text}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Progreso actual: ${act.progress || 0}%</div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('ach-text').value = act.achievements || '';
+    document.getElementById('ach-progress').value = act.progress || 0;
+    document.getElementById('ach-progress-val').innerText = act.progress || 0;
+    document.getElementById('ach-justification').value = '';
+
+    document.getElementById('achievement-modal-overlay').classList.add('open');
+}
+
+function closeAchievementModal() {
+    document.getElementById('achievement-modal-overlay').classList.remove('open');
+}
+
+async function saveAchievement() {
+    const { activityId } = achievementModalState;
+    if (!activityId) return;
+
+    try {
+        await apiCall(`${API_BASE}/activities/${activityId}/achievements`, 'PUT', {
+            achievements: document.getElementById('ach-text').value.trim() || null,
+            progress: parseInt(document.getElementById('ach-progress').value) || 0,
+            justification: document.getElementById('ach-justification').value.trim() || null,
+        });
+
+        closeAchievementModal();
+        await loadData();
+    } catch (error) {
+        alert('❌ ' + error.message);
+    }
+}
 
 /* ═══════════════════════════════════════════
    Main Project Modal
@@ -1902,6 +2143,18 @@ function sanitizeSheetName(name) {
     return name.replace(/[\\/*?:\[\]]/g, '').substring(0, 31);
 }
 
+function printProject(id) {
+    if (!id && currentView.type === 'project') {
+        const proj = projects.find(p => p.key === currentView.projectKey);
+        if (proj) id = proj.id;
+    }
+    if (id) {
+        // Open the print view in a new tab
+        window.open(`${API_BASE.replace('/api', '')}/projects/${id}/print`, '_blank');
+    } else {
+        alert('Por favor selecciona un proyecto para imprimir.');
+    }
+}
 function formatDateFile() {
     return new Date().toISOString().split('T')[0];
 }

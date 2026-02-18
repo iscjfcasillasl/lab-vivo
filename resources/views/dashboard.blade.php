@@ -134,22 +134,9 @@
                             <p class="subtitle">Haz clic en un proyecto para ver sus actividades</p>
                         </div>
                         <div class="export-dropdown-wrap">
-                            <button class="btn-export" onclick="toggleExportDropdown(event, 'global')">
-                                <i class="ri-download-2-line"></i> Exportar <i class="ri-arrow-down-s-line" style="font-size:0.9rem;margin-left:-4px"></i>
+                            <button class="btn-export" onclick="window.open('{{ route('projects.print_all') }}', '_blank')">
+                                <i class="ri-printer-line"></i> Imprimir Reporte
                             </button>
-                            <div class="export-dropdown" id="export-dd-global">
-                                <div class="export-dropdown-title">Exportar Todo</div>
-                                <div class="export-option" onclick="exportXLSX('all')">
-                                    <i class="ri-file-excel-2-line" style="color:#10b981"></i>
-                                    <span>Excel con gráficos</span>
-                                    <span class="ext-badge xlsx">.xlsx</span>
-                                </div>
-                                <div class="export-option" onclick="exportPDF('all')">
-                                    <i class="ri-file-pdf-2-line" style="color:#ef4444"></i>
-                                    <span>PDF con gráficos</span>
-                                    <span class="ext-badge pdf">.pdf</span>
-                                </div>
-                            </div>
                         </div>
                     </div>
                     <div class="gantt-wrapper" id="gantt-global"></div>
@@ -159,33 +146,9 @@
             <!-- Project Detail View -->
             <div id="view-detail" style="display:none; margin-top: 1.5rem;">
                 <div class="detail-header-card card" id="detail-header"></div>
-                <section class="card gantt-section" style="margin-top:1.5rem">
-                    <div class="section-header">
-                        <div>
-                            <h2><i class="ri-list-check-2"></i> Actividades del Proyecto</h2>
-                            <p class="subtitle">Haz clic en una actividad para editar su progreso y horario</p>
-                        </div>
-                        <div class="export-dropdown-wrap">
-                            <button class="btn-export" onclick="toggleExportDropdown(event, 'detail')">
-                                <i class="ri-download-2-line"></i> Exportar <i class="ri-arrow-down-s-line" style="font-size:0.9rem;margin-left:-4px"></i>
-                            </button>
-                            <div class="export-dropdown" id="export-dd-detail">
-                                <div class="export-dropdown-title">Exportar Proyecto</div>
-                                <div class="export-option" onclick="exportXLSX(currentProjectId)">
-                                    <i class="ri-file-excel-2-line" style="color:#10b981"></i>
-                                    <span>Excel con gráficos</span>
-                                    <span class="ext-badge xlsx">.xlsx</span>
-                                </div>
-                                <div class="export-option" onclick="exportPDF(currentProjectId)">
-                                    <i class="ri-file-pdf-2-line" style="color:#ef4444"></i>
-                                    <span>PDF con gráficos</span>
-                                    <span class="ext-badge pdf">.pdf</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="gantt-wrapper" id="gantt-detail"></div>
-                </section>
+
+                <!-- Phases Container: activities grouped by phase -->
+                <div id="phases-container" style="margin-top:1.5rem"></div>
 
                 <!-- Activity Logs Section -->
                 <section class="card" style="margin-top:1.5rem" id="logs-section">
@@ -241,19 +204,24 @@
                         <label>Nombre de la Actividad</label>
                         <input type="text" id="act-edit-name" readonly style="opacity:0.7">
                     </div>
-                    <div class="form-group" style="flex:1">
+                </div>
+                <!-- Added Description Field -->
+                <div class="form-group" style="margin-top:10px">
+                    <label>Descripción <span style="font-size:0.7rem;opacity:0.5">(opcional)</span></label>
+                    <textarea id="act-edit-desc" rows="2" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px"></textarea>
+                </div>
+                <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap">
+                    <div class="form-group" style="flex:1; min-width:100px">
                         <label>Días (Duración)</label>
                         <input type="number" id="act-edit-days" min="1" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px">
                     </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" style="flex:1; min-width:100px">
                         <label>Hora Inicio</label>
-                        <input type="time" id="act-edit-start">
+                        <input type="time" id="act-edit-start" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="flex:1; min-width:100px">
                         <label>Hora Fin</label>
-                        <input type="time" id="act-edit-end">
+                        <input type="time" id="act-edit-end" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px">
                     </div>
                 </div>
                 <div class="form-group">
@@ -267,33 +235,35 @@
                             else statusEl.value = 'pending';
                         ">
                 </div>
-                <div class="form-group">
-                    <label>Estado</label>
-                    <select id="act-edit-status" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px"
-                        onchange="
-                            const progEl = document.getElementById('act-edit-progress');
-                            const valEl = document.getElementById('act-edit-progress-val');
-                            if (this.value === 'done') { progEl.value = 100; valEl.innerText = 100; }
-                            else if (this.value === 'pending') { progEl.value = 0; valEl.innerText = 0; }
-                            else if (this.value === 'progress' && progEl.value == 0) { progEl.value = 10; valEl.innerText = 10; }
-                        ">
-                        <option value="pending">Pendiente</option>
-                        <option value="progress">En Progreso</option>
-                        <option value="done">Completada</option>
-                    </select>
+                <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap">
+                    <div class="form-group" style="flex:1; min-width:140px">
+                        <label>Estado</label>
+                        <select id="act-edit-status" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px"
+                            onchange="
+                                const progEl = document.getElementById('act-edit-progress');
+                                const valEl = document.getElementById('act-edit-progress-val');
+                                if (this.value === 'done') { progEl.value = 100; valEl.innerText = 100; }
+                                else if (this.value === 'pending') { progEl.value = 0; valEl.innerText = 0; }
+                                else if (this.value === 'progress' && progEl.value == 0) { progEl.value = 10; valEl.innerText = 10; }
+                            ">
+                            <option value="pending">Pendiente</option>
+                            <option value="progress">En Progreso</option>
+                            <option value="done">Completada</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1; min-width:140px">
+                        <label>Prioridad</label>
+                        <select id="act-edit-priority" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px">
+                            <option value="low">Baja</option>
+                            <option value="medium">Media</option>
+                            <option value="high">Alta</option>
+                            <option value="critical">Crítica</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label>Prioridad</label>
-                    <select id="act-edit-priority" class="form-control" style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px">
-                        <option value="low">Baja</option>
-                        <option value="medium">Media</option>
-                        <option value="high">Alta</option>
-                        <option value="critical">Crítica</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label style="color:var(--warning)"><i class="ri-file-text-line"></i> Justificación del cambio <span style="color:var(--danger);font-size:0.7rem">(obligatorio)</span></label>
-                    <textarea id="act-edit-justification" rows="3" placeholder="Describe el avance realizado o la razón del cambio..." style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px; resize:vertical; font-family:inherit; font-size:0.85rem"></textarea>
+                    <label style="color:var(--text-muted)"><i class="ri-file-text-line"></i> Justificación del cambio <span style="opacity:0.5;font-size:0.7rem">(opcional)</span></label>
+                    <textarea id="act-edit-justification" rows="3" placeholder="Opcional: describe la razón del cambio..." style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px; resize:vertical; font-family:inherit; font-size:0.85rem"></textarea>
                 </div>
 
                 <!-- Mini log inside modal -->
@@ -405,6 +375,63 @@
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
                 <button class="btn-save" id="modal-save-btn" onclick="saveProject()"><i class="ri-save-line"></i> Crear Proyecto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Registrar Avance -->
+    <div class="modal-overlay" id="achievement-modal-overlay" onclick="closeAchievementModal()">
+        <div class="modal" style="width:520px" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2><i class="ri-trophy-line" style="color:var(--success)"></i> Registrar Avance</h2>
+                <button class="modal-close" onclick="closeAchievementModal()"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="ach-activity-info" style="margin-bottom:14px;padding:10px 14px;border-radius:10px;background:var(--bg-card-hover);border:1px solid var(--border)">
+                </div>
+                <div class="form-group">
+                    <label><i class="ri-quill-pen-line"></i> ¿Qué se logró?</label>
+                    <textarea id="ach-text" rows="4" placeholder="Describe los logros o avances realizados..." style="width:100%; padding:12px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:10px; resize:vertical; font-family:inherit; font-size:0.85rem"></textarea>
+                    <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:4px">
+                        <i class="ri-information-line"></i> Este campo no es obligatorio para guardar.
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Progreso: <span id="ach-progress-val">0</span>%</label>
+                    <input type="range" id="ach-progress" min="0" max="100" step="5" style="width:100%" oninput="document.getElementById('ach-progress-val').innerText = this.value">
+                </div>
+                <div class="form-group">
+                    <label style="color:var(--text-muted)"><i class="ri-chat-3-line"></i> Nota adicional <span style="opacity:0.5;font-size:0.7rem">(opcional)</span></label>
+                    <input type="text" id="ach-justification" placeholder="Opcional: nota breve..." style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:0.85rem">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeAchievementModal()">Cancelar</button>
+                <button class="btn-save" onclick="saveAchievement()" style="background:var(--success)"><i class="ri-check-double-line"></i> Registrar Avance</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Nueva Fase -->
+    <div class="modal-overlay" id="phase-modal-overlay" onclick="closePhaseModal()">
+        <div class="modal" style="width:440px" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2><i class="ri-stack-line" style="color:var(--secondary)"></i> <span id="phase-modal-title">Nueva Fase</span></h2>
+                <button class="modal-close" onclick="closePhaseModal()"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre de la Fase</label>
+                    <input type="text" id="phase-name" placeholder="Ej: Fase de Construcción">
+                </div>
+                <div class="form-group">
+                    <label>Descripción <span style="opacity:0.5;font-size:0.7rem">(opcional)</span></label>
+                    <textarea id="phase-desc" rows="2" placeholder="Descripción breve de la fase..." style="width:100%; padding:10px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:8px; resize:vertical; font-family:inherit; font-size:0.85rem"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closePhaseModal()">Cancelar</button>
+                <button class="btn-save" id="phase-save-btn" onclick="savePhase()"><i class="ri-save-line"></i> Crear Fase</button>
             </div>
         </div>
     </div>
